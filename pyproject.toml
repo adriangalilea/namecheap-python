@@ -140,5 +140,5 @@ exclude_lines = [
     "if typing.TYPE_CHECKING:",
 ]
 # Note: Overall coverage is low due to untested CLI and TUI modules
-# Focus testing on src/namecheap core library
+# Focus testing on the src/namecheap core library
 precision = 2

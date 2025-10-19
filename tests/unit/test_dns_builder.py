@@ -91,8 +91,9 @@ class TestDNSRecordBuilder:
         records = builder.build()
         assert len(records) == 1
         assert records[0].type == "SRV"
-        assert records[0].priority == 10
+        assert "10" in records[0].value  # Priority is in value, not priority field
         assert "5060" in records[0].value
+        assert "60" in records[0].value  # Weight is in value
 
     def test_builder_caa_record(self) -> None:
         """Test adding CAA record via builder."""

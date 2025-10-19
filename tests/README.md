@@ -1,5 +1,3 @@
-"""Testing documentation and guide."""
-
 # Testing Guide for namecheap-python
 
 This document describes the comprehensive testing infrastructure for the namecheap-python library.

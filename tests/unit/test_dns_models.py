@@ -104,12 +104,13 @@ class TestDNSRecordModel:
             "@Type": "SRV",
             "@Address": "10 60 5060 sipserver.example.com",
             "@TTL": "3600",
-            "@MXPref": "10",
         })
         
         assert record.type == "SRV"
-        assert record.priority == 10
-        assert "5060" in record.value
+        assert record.priority is None  # SRV priority is in value, not @MXPref
+        assert "10" in record.value  # Priority in value
+        assert "60" in record.value  # Weight in value
+        assert "5060" in record.value  # Port in value
 
     def test_caa_record(self) -> None:
         """Test CAA record creation."""

@@ -42,11 +42,11 @@ def assert_dns_record_equals(
 ) -> None:
     """Compare two DNS records for equality."""
     ignore_fields = ignore_fields or set()
-    
+
     fields_to_compare = {
         "name", "type", "value", "ttl", "priority"
     } - ignore_fields
-    
+
     for field in fields_to_compare:
         val1 = getattr(record1, field, None)
         val2 = getattr(record2, field, None)

@@ -4,5 +4,5 @@ from __future__ import annotations
 
 import pytest
 
-# Import all fixtures from dns module
-from .dns import *  # noqa: F403, F401
+# Import specific fixtures from dns module
+from .dns import sample_dns_records, sample_domain_response, sample_dns_get_response

@@ -184,7 +184,7 @@ class DNSRecord(XMLModel):
     """A DNS record."""
 
     name: str = Field(alias="@Name", default="@")
-    type: Literal["A", "AAAA", "CNAME", "MX", "NS", "SRV", "TXT", "URL", "URL301", "FRAME"] = (
+    type: Literal["A", "AAAA", "ALIAS", "CAA", "CNAME", "MX", "MXE", "NS", "SRV", "TXT", "URL", "URL301", "FRAME"] = (
         Field(alias="@Type")
     )
     value: str = Field(alias="@Address")

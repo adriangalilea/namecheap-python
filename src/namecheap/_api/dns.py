@@ -170,6 +170,74 @@ class DNSRecordBuilder:
         )
         return self
 
+    def caa(self, name: str, flags: int, tag: str, value: str, ttl: int = 1800) -> Self:
+        """
+        Add a CAA (Certificate Authority Authorization) record.
+
+        Args:
+            name: Record name (@ for root)
+            flags: CAA flags (typically 0)
+            tag: CAA tag (issue, issuewild, or iodef)
+            value: CAA value (CA domain or contact email)
+            ttl: Time to live in seconds
+
+        Returns:
+            Self for chaining
+        """
+        # CAA record format: flags tag value
+        caa_value = f'{flags} {tag} "{value}"'
+        self._records.append(
+            DNSRecord.model_validate(
+                {"@Name": name, "@Type": "CAA", "@Address": caa_value, "@TTL": ttl}
+            )
+        )
+        return self
+
+    def alias(self, name: str, target: str, ttl: int = 1800) -> Self:
+        """
+        Add an ALIAS record.
+
+        Args:
+            name: Record name
+            target: Target domain
+            ttl: Time to live in seconds
+
+        Returns:
+            Self for chaining
+        """
+        self._records.append(
+            DNSRecord.model_validate(
+                {"@Name": name, "@Type": "ALIAS", "@Address": target, "@TTL": ttl}
+            )
+        )
+        return self
+
+    def mxe(self, name: str, ip: str, priority: int = 10, ttl: int = 1800) -> Self:
+        """
+        Add an MXE record (MX by IP address).
+
+        Args:
+            name: Record name (@ for root)
+            ip: IPv4 address of mail server
+            priority: MX priority (lower = higher priority)
+            ttl: Time to live in seconds
+
+        Returns:
+            Self for chaining
+        """
+        self._records.append(
+            DNSRecord.model_validate(
+                {
+                    "@Name": name,
+                    "@Type": "MXE",
+                    "@Address": ip,
+                    "@TTL": ttl,
+                    "@MXPref": priority,
+                }
+            )
+        )
+        return self
+
     def url(
         self,
         name: str,

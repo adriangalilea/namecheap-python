@@ -51,6 +51,15 @@ all = [
 dev = [
     "ruff>=0.7.0",
 ]
+test = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-xdist>=3.3.0",
+    "pytest-timeout>=2.1.0",
+    "pytest-mock>=3.11.1",
+    "hypothesis>=6.82.0",
+    "faker>=19.6.0",
+]
 
 [project.scripts]
 namecheap-cli = "namecheap_cli:main"
@@ -88,5 +97,45 @@ ignore = [
     "SIM118",  # Use `key in dict` instead of `key in dict.keys()` - no current violations
 ]
 
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = """
+    -v
+    --strict-markers
+    --tb=short
+    --cov=src/namecheap
+    --cov=src/namecheap_cli
+    --cov=src/namecheap_dns_tui
+    --cov-report=term-missing:skip-covered
+    --cov-report=html:htmlcov
+    --cov-report=xml
+    --cov-fail-under=25
+    -n auto
+    --timeout=300
+"""
+markers = [
+    "unit: unit tests (fast)",
+    "integration: integration tests (medium)",
+    "e2e: end-to-end tests (slow, requires credentials)",
+    "slow: slow tests",
+    "requires_credentials: tests requiring Namecheap credentials",
+]
 
+[tool.coverage.run]
+source = ["src/namecheap", "src/namecheap_cli", "src/namecheap_dns_tui"]
+omit = ["*/tests/*", "*/__pycache__/*", "*/site-packages/*"]
 
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+]

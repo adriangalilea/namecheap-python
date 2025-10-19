@@ -145,6 +145,31 @@ class DNSRecordBuilder:
         )
         return self
 
+    def srv(self, name: str, target: str, port: int, priority: int = 10, weight: int = 10, ttl: int = 1800) -> Self:
+        """
+        Add an SRV record.
+
+        Args:
+            name: Record name (service name, typically _service._proto.name)
+            target: Target hostname
+            port: Port number
+            priority: Priority (0-65535, lower = higher priority)
+            weight: Weight for load balancing (0-65535)
+            ttl: Time to live in seconds
+
+        Returns:
+            Self for chaining
+        """
+        # SRV records require priority, weight, and port in the value
+        # Format: priority weight port target
+        srv_value = f"{priority} {weight} {port} {target}"
+        self._records.append(
+            DNSRecord.model_validate(
+                {"@Name": name, "@Type": "SRV", "@Address": srv_value, "@TTL": ttl, "@MXPref": priority}
+            )
+        )
+        return self
+
     def url(
         self,
         name: str,

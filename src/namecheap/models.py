@@ -239,15 +239,15 @@ class Domain(XMLModel):
     @field_validator("created", "expires", mode="before")
     @classmethod
     def parse_datetime(cls, v: Any) -> datetime:
-        """Parse datetime strings."""
+        """Parse datetime from Namecheap API or Pydantic serialization."""
         if isinstance(v, datetime):
             return v
         if isinstance(v, str):
-            # Namecheap uses MM/DD/YYYY format
-            if (v.find('T') == 01):
+            # Namecheap API format (MM/DD/YYYY)
+            if '/' in v:
                 return datetime.strptime(v, "%m/%d/%Y")
-            else:
-                return datetime.fromisoformat(v)
+            # Pydantic serialization format (ISO 8601)
+            return datetime.fromisoformat(v)
         raise ValueError(f"Cannot parse datetime from {v}")
 
 

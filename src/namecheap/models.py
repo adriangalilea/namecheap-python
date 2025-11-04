@@ -244,7 +244,7 @@ class Domain(XMLModel):
             return v
         if isinstance(v, str):
             # Namecheap API format (MM/DD/YYYY)
-            if '/' in v:
+            if "/" in v:
                 return datetime.strptime(v, "%m/%d/%Y")
             # Pydantic serialization format (ISO 8601)
             return datetime.fromisoformat(v)

@@ -700,6 +700,137 @@ def dns_delete(
         sys.exit(1)
 
 
+@dns_group.command("nameservers")
+@click.argument("domain")
+@pass_config
+def dns_nameservers(config: Config, domain: str) -> None:
+    """Show current nameserver configuration for a domain."""
+    nc = config.init_client()
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Getting nameserver info for {domain}...", total=None)
+            info = nc.dns.get_nameserver_info(domain)
+
+        if config.output_format == "table":
+            console.print(f"\n[bold cyan]Nameservers for {domain}[/bold cyan]\n")
+
+            if info["using_default"]:
+                console.print("[green]Using Namecheap BasicDNS[/green]")
+            else:
+                console.print("[yellow]Using custom nameservers:[/yellow]")
+                for ns in info["nameservers"]:
+                    console.print(f"  • {ns}")
+        else:
+            output_formatter(info, config.output_format)
+
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
+@dns_group.command("set-nameservers")
+@click.argument("domain")
+@click.argument("nameservers", nargs=-1, required=True)
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@pass_config
+def dns_set_nameservers(
+    config: Config, domain: str, nameservers: tuple[str, ...], yes: bool
+) -> None:
+    """Set custom nameservers for a domain.
+
+    This switches the domain from Namecheap's default DNS to custom nameservers.
+
+    Example:
+        namecheap-cli dns set-nameservers example.com ns1.route53.com ns2.route53.com
+    """
+    nc = config.init_client()
+
+    if not nameservers:
+        console.print("[red]❌ At least one nameserver is required[/red]")
+        sys.exit(1)
+
+    try:
+        if not yes and not config.quiet:
+            console.print(f"\n[yellow]Setting custom nameservers for {domain}:[/yellow]")
+            for ns in nameservers:
+                console.print(f"  • {ns}")
+            console.print()
+
+            if not Confirm.ask("Continue?", default=True):
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Setting nameservers for {domain}...", total=None)
+            success = nc.dns.set_custom_nameservers(domain, list(nameservers))
+
+        if success:
+            console.print(f"[green]✅ Custom nameservers set for {domain}[/green]")
+            if not config.quiet:
+                console.print(
+                    "\n[dim]Note: DNS propagation may take up to 48 hours.[/dim]"
+                )
+        else:
+            console.print("[red]❌ Failed to set nameservers[/red]")
+            sys.exit(1)
+
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
+@dns_group.command("reset-nameservers")
+@click.argument("domain")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@pass_config
+def dns_reset_nameservers(config: Config, domain: str, yes: bool) -> None:
+    """Reset domain to use Namecheap's default nameservers.
+
+    This switches the domain back to Namecheap BasicDNS from custom nameservers.
+    """
+    nc = config.init_client()
+
+    try:
+        if not yes and not config.quiet:
+            console.print(
+                f"\n[yellow]This will reset {domain} to Namecheap's default DNS.[/yellow]"
+            )
+            if not Confirm.ask("Continue?", default=True):
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(
+                f"Resetting nameservers for {domain}...", total=None
+            )
+            success = nc.dns.set_default_nameservers(domain)
+
+        if success:
+            console.print(
+                f"[green]✅ {domain} is now using Namecheap BasicDNS[/green]"
+            )
+        else:
+            console.print("[red]❌ Failed to reset nameservers[/red]")
+            sys.exit(1)
+
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
 @dns_group.command("export")
 @click.argument("domain")
 @click.option(

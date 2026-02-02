@@ -60,6 +60,9 @@ Based on the previous Namecheap Python SDK implementation, here's what's still p
 - ✅ `set()` - Set DNS records (with builder pattern!)
 - ✅ `add()` - Add single record
 - ✅ `delete()` - Delete records
+- ✅ `set_custom_nameservers()` - Switch to custom nameservers (e.g., Route 53)
+- ✅ `set_default_nameservers()` - Reset to Namecheap BasicDNS
+- ✅ `get_nameserver_info()` - Get current nameserver configuration
 
 ### Enhanced Features
 - ✅ Smart IP detection and validation

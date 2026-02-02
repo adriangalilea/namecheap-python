@@ -381,3 +381,130 @@ class DnsAPI(BaseAPI):
             >>> nc.dns.set("example.com", builder)
         """
         return DNSRecordBuilder()
+
+    def set_custom_nameservers(self, domain: str, nameservers: list[str]) -> bool:
+        """
+        Set custom nameservers for a domain.
+
+        This switches the domain from Namecheap's default DNS to custom
+        nameservers (e.g., Route 53, Cloudflare, etc.).
+
+        Args:
+            domain: Domain name
+            nameservers: List of nameserver hostnames (e.g., ["ns1.example.com", "ns2.example.com"])
+
+        Returns:
+            True if successful
+
+        Examples:
+            >>> nc.dns.set_custom_nameservers("example.com", [
+            ...     "ns-123.awsdns-45.com",
+            ...     "ns-456.awsdns-67.net",
+            ...     "ns-789.awsdns-89.org",
+            ...     "ns-012.awsdns-12.co.uk",
+            ... ])
+        """
+        if not nameservers:
+            raise ValueError("At least one nameserver is required")
+
+        # Parse domain
+        ext = tldextract.extract(domain)
+        if not ext.domain or not ext.suffix:
+            raise ValueError(f"Invalid domain name: {domain}")
+
+        result: Any = self._request(
+            "namecheap.domains.dns.setCustom",
+            {
+                "SLD": ext.domain,
+                "TLD": ext.suffix,
+                "Nameservers": ",".join(nameservers),
+            },
+            path="DomainDNSSetCustomResult",
+        )
+
+        return bool(result and result.get("@Updated") == "true")
+
+    def set_default_nameservers(self, domain: str) -> bool:
+        """
+        Reset domain to use Namecheap's default nameservers.
+
+        This switches the domain back to Namecheap BasicDNS from custom nameservers.
+
+        Args:
+            domain: Domain name
+
+        Returns:
+            True if successful
+
+        Examples:
+            >>> nc.dns.set_default_nameservers("example.com")
+        """
+        # Parse domain
+        ext = tldextract.extract(domain)
+        if not ext.domain or not ext.suffix:
+            raise ValueError(f"Invalid domain name: {domain}")
+
+        result: Any = self._request(
+            "namecheap.domains.dns.setDefault",
+            {
+                "SLD": ext.domain,
+                "TLD": ext.suffix,
+            },
+            path="DomainDNSSetDefaultResult",
+        )
+
+        return bool(result and result.get("@Updated") == "true")
+
+    def get_nameserver_info(self, domain: str) -> dict[str, Any]:
+        """
+        Get nameserver information for a domain.
+
+        Returns information about whether the domain is using Namecheap's
+        default DNS or custom nameservers.
+
+        Args:
+            domain: Domain name
+
+        Returns:
+            Dict with nameserver info including:
+            - using_default: Whether using Namecheap's default DNS
+            - nameservers: List of current nameservers (if custom)
+
+        Examples:
+            >>> info = nc.dns.get_nameserver_info("example.com")
+            >>> if info["using_default"]:
+            ...     print("Using Namecheap DNS")
+            ... else:
+            ...     print(f"Custom NS: {info['nameservers']}")
+        """
+        # Parse domain
+        ext = tldextract.extract(domain)
+        if not ext.domain or not ext.suffix:
+            raise ValueError(f"Invalid domain name: {domain}")
+
+        result: Any = self._request(
+            "namecheap.domains.dns.getList",
+            {
+                "SLD": ext.domain,
+                "TLD": ext.suffix,
+            },
+            path="DomainDNSGetListResult",
+        )
+
+        if not result:
+            return {"using_default": True, "nameservers": []}
+
+        using_default = result.get("@IsUsingOurDNS", "false").lower() == "true"
+
+        # Extract nameservers
+        nameservers = []
+        ns_data = result.get("Nameserver", [])
+        if isinstance(ns_data, str):
+            nameservers = [ns_data]
+        elif isinstance(ns_data, list):
+            nameservers = ns_data
+
+        return {
+            "using_default": using_default,
+            "nameservers": nameservers,
+        }

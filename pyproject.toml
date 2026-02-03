@@ -1,6 +1,6 @@
 [project]
 name = "namecheap-python"
-version = "1.0.6"
+version = "1.1.0"
 description = "A friendly Python SDK for Namecheap API"
 authors = [{name = "Adrian Galilea Delgado", email = "adriangalilea@gmail.com"}]
 readme = "README.md"

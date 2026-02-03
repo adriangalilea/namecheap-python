@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import tldextract
 
-from namecheap.models import DNSRecord
+from namecheap.models import DNSRecord, Nameservers
 
 from .base import BaseAPI
 
@@ -381,3 +381,116 @@ class DnsAPI(BaseAPI):
             >>> nc.dns.set("example.com", builder)
         """
         return DNSRecordBuilder()
+
+    def set_custom_nameservers(self, domain: str, nameservers: list[str]) -> bool:
+        """
+        Set custom nameservers for a domain.
+
+        This switches the domain from Namecheap's default DNS to custom
+        nameservers (e.g., Route 53, Cloudflare, etc.).
+
+        Args:
+            domain: Domain name
+            nameservers: List of nameserver hostnames (e.g., ["ns1.example.com", "ns2.example.com"])
+
+        Returns:
+            True if successful
+
+        Examples:
+            >>> nc.dns.set_custom_nameservers("example.com", [
+            ...     "ns-123.awsdns-45.com",
+            ...     "ns-456.awsdns-67.net",
+            ...     "ns-789.awsdns-89.org",
+            ...     "ns-012.awsdns-12.co.uk",
+            ... ])
+        """
+        assert nameservers, "At least one nameserver is required"
+        assert len(nameservers) <= 5, "Maximum of 5 nameservers allowed"
+
+        ext = tldextract.extract(domain)
+        if not ext.domain or not ext.suffix:
+            raise ValueError(f"Invalid domain name: {domain}")
+
+        result: Any = self._request(
+            "namecheap.domains.dns.setCustom",
+            {
+                "SLD": ext.domain,
+                "TLD": ext.suffix,
+                "Nameservers": ",".join(nameservers),
+            },
+            path="DomainDNSSetCustomResult",
+        )
+
+        return bool(result and result.get("@Updated") == "true")
+
+    def set_default_nameservers(self, domain: str) -> bool:
+        """
+        Reset domain to use Namecheap's default nameservers.
+
+        This switches the domain back to Namecheap BasicDNS from custom nameservers.
+
+        Args:
+            domain: Domain name
+
+        Returns:
+            True if successful
+
+        Examples:
+            >>> nc.dns.set_default_nameservers("example.com")
+        """
+        ext = tldextract.extract(domain)
+        if not ext.domain or not ext.suffix:
+            raise ValueError(f"Invalid domain name: {domain}")
+
+        result: Any = self._request(
+            "namecheap.domains.dns.setDefault",
+            {
+                "SLD": ext.domain,
+                "TLD": ext.suffix,
+            },
+            path="DomainDNSSetDefaultResult",
+        )
+
+        return bool(result and result.get("@Updated") == "true")
+
+    def get_nameservers(self, domain: str) -> Nameservers:
+        """
+        Get current nameservers for a domain.
+
+        Args:
+            domain: Domain name
+
+        Returns:
+            Nameservers with is_default flag and nameserver hostnames
+
+        Examples:
+            >>> ns = nc.dns.get_nameservers("example.com")
+            >>> ns.is_default
+            True
+            >>> ns.nameservers
+            ['dns1.registrar-servers.com', 'dns2.registrar-servers.com']
+        """
+        ext = tldextract.extract(domain)
+        if not ext.domain or not ext.suffix:
+            raise ValueError(f"Invalid domain name: {domain}")
+
+        result: Any = self._request(
+            "namecheap.domains.dns.getList",
+            {
+                "SLD": ext.domain,
+                "TLD": ext.suffix,
+            },
+            path="DomainDNSGetListResult",
+        )
+
+        assert result, f"API returned empty result for {domain} nameserver query"
+
+        is_default = result.get("@IsUsingOurDNS", "false").lower() == "true"
+
+        ns_data = result.get("Nameserver", [])
+        assert isinstance(ns_data, str | list), (
+            f"Unexpected Nameserver type: {type(ns_data)}"
+        )
+        nameservers = [ns_data] if isinstance(ns_data, str) else ns_data
+
+        return Nameservers(is_default=is_default, nameservers=nameservers)

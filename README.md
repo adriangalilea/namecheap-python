@@ -260,6 +260,24 @@ nc.dns.set("example.com",
 
 **Note on TTL:** The default TTL is **1799 seconds**, which displays as **"Automatic"** in the Namecheap web interface. This is an undocumented Namecheap API behavior. You can specify custom TTL values (60-86400 seconds) in any DNS method.
 
+### Nameserver Management
+
+```python
+# Check current nameservers
+ns = nc.dns.get_nameservers("example.com")
+print(ns.nameservers)  # ['dns1.registrar-servers.com', 'dns2.registrar-servers.com']
+print(ns.is_default)   # True
+
+# Switch to custom nameservers (e.g., Cloudflare, Route 53)
+nc.dns.set_custom_nameservers("example.com", [
+    "ns1.cloudflare.com",
+    "ns2.cloudflare.com",
+])
+
+# Reset back to Namecheap BasicDNS
+nc.dns.set_default_nameservers("example.com")
+```
+
 ### Domain Management
 
 ```python
@@ -339,7 +357,7 @@ The following Namecheap API features are planned for future releases:
 
 - **SSL API** - Certificate management
 - **Domain Transfer API** - Transfer domains between registrars
-- **Domain NS API** - Custom nameserver management
+- **Domain NS API** - Glue record management (child nameservers)
 - **Users API** - Account management and balance checking
 - **Whois API** - WHOIS information lookups
 - **Email Forwarding** - Email forwarding configuration
@@ -357,3 +375,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request. See the [Development Guide](docs/dev/README.md) for setup instructions and guidelines.
+
+### Contributors
+
+- [@cosmin](https://github.com/cosmin) — Nameserver management

@@ -1,5 +1,11 @@
 # Namecheap Python SDK
 
+[![PyPI version](https://badge.fury.io/py/namecheap-python.svg)](https://pypi.org/project/namecheap-python/)
+[![Downloads](https://pepy.tech/badge/namecheap-python)](https://pepy.tech/project/namecheap-python)
+[![Downloads/month](https://pepy.tech/badge/namecheap-python/month)](https://pepy.tech/project/namecheap-python)
+[![Python](https://img.shields.io/pypi/pyversions/namecheap-python)](https://pypi.org/project/namecheap-python/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A modern, friendly Python SDK for the Namecheap API with comprehensive CLI and TUI tools.
 
 ## 🚀 Features

@@ -357,19 +357,20 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1799)  # Shows as "Automatic"
 nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 ```
 
-## 📊 API Coverage
+## 📊 [API Coverage](https://www.namecheap.com/support/api/methods/)
 
 | API | Status | Methods |
 |-----|--------|---------|
 | `namecheap.domains.*` | ✅ Done | `check`, `list`, `register`, `renew`, `setContacts`, `lock`/`unlock` |
-| `namecheap.domains.dns.*` | ✅ Done | `get`, `set` (builder pattern), `add`, `delete`, `export`, `get_nameservers`, `set_custom_nameservers`, `set_default_nameservers` |
-| `namecheap.users.getPricing` | ⚠️ Partial | `include_pricing=True` on domain check needs debugging |
-| `namecheap.ssl.*` | 🚧 Planned | Certificate management (create, activate, renew, revoke, list) |
-| `namecheap.domains.transfer.*` | 🚧 Planned | Initiate, status, approve/reject transfers |
-| `namecheap.domains.ns.*` | 🚧 Planned | Glue records — create/delete/update child nameservers (`ns1.yourdomain.com`) |
-| `namecheap.users.*` | 🚧 Planned | Account management, balance, sub-accounts |
-| `namecheap.whois.*` | 🚧 Planned | WHOIS lookups |
-| Email Forwarding | 🚧 Planned | Email forwarding configuration |
+| `namecheap.domains.dns.*` | ✅ Done | `getHosts`, `setHosts` (builder pattern), `add`, `delete`, `export`, `getList`, `setCustom`, `setDefault` |
+| `namecheap.domains.*` | 🚧 Planned | `getInfo`, `getContacts`, `getTldList`, `reactivate` |
+| `namecheap.domains.dns.*` | 🚧 Planned | `getEmailForwarding`, `setEmailForwarding` |
+| `namecheap.users.*` | ⚠️ Partial | `getPricing` (needs debugging). Planned: `getBalances`, `changePassword`, `update`, `create`, `login`, `resetPassword` |
+| `namecheap.users.address.*` | 🚧 Planned | `create`, `delete`, `getInfo`, `getList`, `setDefault`, `update` |
+| `namecheap.ssl.*` | 🚧 Planned | `create`, `activate`, `renew`, `revoke`, `getList`, `getInfo`, `parseCSR`, `reissue`, and more |
+| `namecheap.domains.transfer.*` | 🚧 Planned | `create`, `getStatus`, `updateStatus`, `getList` |
+| `namecheap.domains.ns.*` | 🚧 Planned | Glue records — `create`, `delete`, `getInfo`, `update` |
+| `namecheap.domainprivacy.*` | 🚧 Planned | `enable`, `disable`, `renew`, `getList`, `changeemailaddress` |
 
 ## 🛠️ Development
 

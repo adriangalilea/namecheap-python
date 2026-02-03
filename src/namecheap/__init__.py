@@ -22,9 +22,11 @@ from .models import (
     DomainInfo,
     EmailForward,
     Nameservers,
+    Tld,
+    WhoisguardEntry,
 )
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = [
     "AccountBalance",
     "ConfigurationError",
@@ -38,5 +40,7 @@ __all__ = [
     "Namecheap",
     "NamecheapError",
     "Nameservers",
+    "Tld",
     "ValidationError",
+    "WhoisguardEntry",
 ]

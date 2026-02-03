@@ -54,7 +54,9 @@ src/
 │   └── _api/               # API implementations
 │       ├── base.py         # BaseAPI with _request() — all API calls go through here
 │       ├── domains.py      # namecheap.domains.* endpoints
-│       └── dns.py          # namecheap.domains.dns.* endpoints + builder
+│       ├── dns.py          # namecheap.domains.dns.* endpoints + builder
+│       ├── users.py        # namecheap.users.* endpoints
+│       └── whoisguard.py   # namecheap.whoisguard.* endpoints (domain privacy)
 ├── namecheap_cli/          # CLI (click)
 │   ├── __main__.py         # All commands in one file
 │   └── completion.py       # Shell completions

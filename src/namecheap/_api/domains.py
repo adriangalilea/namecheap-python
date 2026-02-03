@@ -9,7 +9,14 @@ from typing import Any
 import tldextract
 
 from namecheap.logging import logger
-from namecheap.models import Contact, Domain, DomainCheck, DomainContacts, DomainInfo
+from namecheap.models import (
+    Contact,
+    Domain,
+    DomainCheck,
+    DomainContacts,
+    DomainInfo,
+    Tld,
+)
 
 from .base import BaseAPI
 
@@ -201,6 +208,34 @@ class DomainsAPI(BaseAPI):
             admin=parse_contact(result.get("Admin", {})),
             aux_billing=parse_contact(result.get("AuxBilling", {})),
         )
+
+    def get_tld_list(self) -> builtins.list[Tld]:
+        """
+        Get list of all TLDs supported by Namecheap.
+
+        NOTE: Cache this response — it rarely changes and the API docs recommend it.
+
+        Returns:
+            List of Tld objects with registration/renewal constraints and capabilities
+
+        Examples:
+            >>> tlds = nc.domains.get_tld_list()
+            >>> registerable = [t for t in tlds if t.is_api_registerable]
+            >>> print(f"{len(registerable)} TLDs available for API registration")
+        """
+        result: Any = self._request(
+            "namecheap.domains.getTldList",
+            path="Tlds",
+        )
+
+        assert result, "API returned empty result for getTldList"
+
+        tlds = result.get("Tld", [])
+        if isinstance(tlds, dict):
+            tlds = [tlds]
+        assert isinstance(tlds, list), f"Unexpected Tld type: {type(tlds)}"
+
+        return [Tld.model_validate(t) for t in tlds]
 
     def register(
         self,

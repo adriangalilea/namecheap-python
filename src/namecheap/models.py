@@ -347,6 +347,82 @@ class DomainContacts(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class Tld(BaseModel):
+    """TLD information from Namecheap's supported TLD list."""
+
+    name: str = Field(alias="@Name")
+    description: str = Field(alias="#text", default="")
+    type: str = Field(alias="@Type")
+    min_register_years: int = Field(alias="@MinRegisterYears")
+    max_register_years: int = Field(alias="@MaxRegisterYears")
+    min_renew_years: int = Field(alias="@MinRenewYears")
+    max_renew_years: int = Field(alias="@MaxRenewYears")
+    min_transfer_years: int = Field(alias="@MinTransferYears")
+    max_transfer_years: int = Field(alias="@MaxTransferYears")
+    is_api_registerable: bool = Field(alias="@IsApiRegisterable")
+    is_api_renewable: bool = Field(alias="@IsApiRenewable")
+    is_api_transferable: bool = Field(alias="@IsApiTransferable")
+    is_epp_required: bool = Field(alias="@IsEppRequired")
+    is_disable_mod_contact: bool = Field(alias="@IsDisableModContact")
+    is_disable_wg_allot: bool = Field(alias="@IsDisableWGAllot")
+    is_supports_idn: bool = Field(alias="@IsSupportsIDN")
+    category: str = Field(alias="@Category", default="")
+    sequence_number: int = Field(alias="@SequenceNumber", default=0)
+    non_real_time: bool = Field(alias="@NonRealTime", default=False)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator(
+        "is_api_registerable",
+        "is_api_renewable",
+        "is_api_transferable",
+        "is_epp_required",
+        "is_disable_mod_contact",
+        "is_disable_wg_allot",
+        "is_supports_idn",
+        "non_real_time",
+        mode="before",
+    )
+    @classmethod
+    def parse_bool(cls, v: Any) -> bool:
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            return v.lower() == "true"
+        return False
+
+    @field_validator(
+        "min_register_years",
+        "max_register_years",
+        "min_renew_years",
+        "max_renew_years",
+        "min_transfer_years",
+        "max_transfer_years",
+        "sequence_number",
+        mode="before",
+    )
+    @classmethod
+    def parse_int(cls, v: Any) -> int:
+        return int(v) if v else 0
+
+
+class WhoisguardEntry(BaseModel):
+    """A WhoisGuard/domain privacy subscription."""
+
+    id: int = Field(alias="@ID")
+    domain: str = Field(alias="@DomainName", default="")
+    created: str = Field(alias="@Created", default="")
+    expires: str = Field(alias="@Expires", default="")
+    status: str = Field(alias="@Status", default="")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def parse_id(cls, v: Any) -> int:
+        return int(v) if v else 0
+
+
 class Config(BaseModel):
     """Client configuration with validation."""
 

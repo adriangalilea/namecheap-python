@@ -358,6 +358,41 @@ print(f"{contacts.registrant.first_name} {contacts.registrant.last_name}")
 print(contacts.registrant.email)
 ```
 
+### TLD List
+
+```python
+tlds = nc.domains.get_tld_list()
+print(f"{len(tlds)} TLDs supported")
+
+# Filter to API-registerable TLDs
+registerable = [t for t in tlds if t.is_api_registerable]
+for t in registerable[:5]:
+    print(f".{t.name} ({t.type}) — {t.min_register_years}-{t.max_register_years} years")
+```
+
+### Domain Privacy (WhoisGuard)
+
+```python
+# List all WhoisGuard subscriptions
+entries = nc.whoisguard.get_list()
+for e in entries:
+    print(f"{e.domain} (ID={e.id}) status={e.status}")
+
+# Enable privacy (resolves WhoisGuard ID from domain name automatically)
+nc.whoisguard.enable("example.com", "me@gmail.com")
+
+# Disable privacy
+nc.whoisguard.disable("example.com")
+
+# Renew privacy
+result = nc.whoisguard.renew("example.com", years=1)
+print(f"Charged: {result['charged_amount']}")
+
+# Rotate the masked forwarding email
+result = nc.whoisguard.change_email("example.com")
+print(f"New: {result['new_email']}")
+```
+
 ### Domain Management
 
 ```python
@@ -444,15 +479,15 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 
 | API | Status | Methods |
 |-----|--------|---------|
-| `namecheap.domains.*` | ✅ Done | `check`, `list`, `getInfo`, `getContacts`, `register`, `renew`, `setContacts`, `lock`/`unlock` |
+| `namecheap.domains.*` | ✅ Done | `check`, `list`, `getInfo`, `getContacts`, `getTldList`, `register`, `renew`, `setContacts`, `lock`/`unlock` |
 | `namecheap.domains.dns.*` | ✅ Done | `getHosts`, `setHosts` (builder pattern), `add`, `delete`, `export`, `getList`, `setCustom`, `setDefault`, `getEmailForwarding`, `setEmailForwarding` |
+| `namecheap.whoisguard.*` | ✅ Done | `getList`, `enable`, `disable`, `renew`, `changeEmailAddress` |
 | `namecheap.users.*` | ⚠️ Partial | `getBalances`, `getPricing` (needs debugging). Planned: `changePassword`, `update`, `create`, `login`, `resetPassword` |
-| `namecheap.domains.*` | 🚧 Planned | `getTldList`, `reactivate` |
 | `namecheap.users.address.*` | 🚧 Planned | `create`, `delete`, `getInfo`, `getList`, `setDefault`, `update` |
 | `namecheap.ssl.*` | 🚧 Planned | `create`, `activate`, `renew`, `revoke`, `getList`, `getInfo`, `parseCSR`, `reissue`, and more |
 | `namecheap.domains.transfer.*` | 🚧 Planned | `create`, `getStatus`, `updateStatus`, `getList` |
 | `namecheap.domains.ns.*` | 🚧 Planned | Glue records — `create`, `delete`, `getInfo`, `update` |
-| `namecheap.domainprivacy.*` | 🚧 Planned | `enable`, `disable`, `renew`, `getList`, `changeemailaddress` |
+| `namecheap.domains.*` | 🚧 Planned | `reactivate` |
 
 ## 🛠️ Development
 
@@ -464,7 +499,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. See the [Development Guide](docs/dev/README.md) for setup instructions and guidelines.
+Contributions are welcome! Please feel free to submit a Pull Request. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
 
 ### Contributors
 

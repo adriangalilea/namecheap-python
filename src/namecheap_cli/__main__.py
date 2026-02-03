@@ -1016,6 +1016,293 @@ def domain_contacts(config: Config, domain: str) -> None:
         sys.exit(1)
 
 
+@domain_group.command("tlds")
+@click.option("--registerable", is_flag=True, help="Only show API-registerable TLDs")
+@click.option(
+    "--type",
+    "-t",
+    "tld_type",
+    type=click.Choice(["GTLD", "CCTLD"], case_sensitive=False),
+    help="Filter by TLD type",
+)
+@pass_config
+def domain_tlds(config: Config, registerable: bool, tld_type: str | None) -> None:
+    """List all supported TLDs."""
+    nc = config.init_client()
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task("Loading TLD list...", total=None)
+            tlds = nc.domains.get_tld_list()
+
+        if registerable:
+            tlds = [t for t in tlds if t.is_api_registerable]
+        if tld_type:
+            tlds = [t for t in tlds if t.type.upper() == tld_type.upper()]
+
+        tlds.sort(key=lambda t: t.name)
+
+        if config.output_format == "table":
+            table = Table(title=f"Supported TLDs ({len(tlds)} total)")
+            table.add_column("TLD", style="cyan")
+            table.add_column("Type", style="magenta")
+            table.add_column("Description", style="dim")
+            table.add_column("Register", justify="center")
+            table.add_column("Renew", justify="center")
+            table.add_column("Transfer", justify="center")
+            table.add_column("Years", justify="center")
+
+            for t in tlds:
+                table.add_row(
+                    f".{t.name}",
+                    t.type,
+                    t.description[:40] if t.description else "",
+                    "✓" if t.is_api_registerable else "✗",
+                    "✓" if t.is_api_renewable else "✗",
+                    "✓" if t.is_api_transferable else "✗",
+                    f"{t.min_register_years}-{t.max_register_years}",
+                )
+
+            console.print(table)
+        else:
+            data = [
+                {
+                    "tld": t.name,
+                    "type": t.type,
+                    "description": t.description,
+                    "api_registerable": t.is_api_registerable,
+                    "api_renewable": t.is_api_renewable,
+                    "api_transferable": t.is_api_transferable,
+                }
+                for t in tlds
+            ]
+            output_formatter(data, config.output_format)
+
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
+@cli.group("privacy")
+def privacy_group() -> None:
+    """Domain privacy (WhoisGuard) management."""
+    pass
+
+
+@privacy_group.command("list")
+@click.option(
+    "--type",
+    "-t",
+    "list_type",
+    type=click.Choice(["ALL", "ALLOTED", "FREE", "DISCARD"], case_sensitive=False),
+    default="ALL",
+    help="Filter by subscription type",
+)
+@pass_config
+def privacy_list(config: Config, list_type: str) -> None:
+    """List WhoisGuard subscriptions."""
+    nc = config.init_client()
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task("Loading WhoisGuard subscriptions...", total=None)
+            entries = nc.whoisguard.get_list(list_type=list_type.upper())
+
+        if config.output_format == "table":
+            table = Table(title=f"WhoisGuard Subscriptions ({len(entries)} total)")
+            table.add_column("ID", style="dim")
+            table.add_column("Domain", style="cyan")
+            table.add_column("Status", style="green")
+            table.add_column("Created", style="yellow")
+            table.add_column("Expires", style="yellow")
+
+            for e in entries:
+                status_style = (
+                    "green" if e.status.lower() in ("enabled", "alloted") else "yellow"
+                )
+                table.add_row(
+                    str(e.id),
+                    e.domain or "[dim]unassigned[/dim]",
+                    f"[{status_style}]{e.status}[/{status_style}]",
+                    e.created,
+                    e.expires,
+                )
+
+            console.print(table)
+        else:
+            output_formatter([e.model_dump() for e in entries], config.output_format)
+
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
+@privacy_group.command("enable")
+@click.argument("domain")
+@click.argument("email")
+@pass_config
+def privacy_enable(config: Config, domain: str, email: str) -> None:
+    """Enable domain privacy. Requires forwarding email.
+
+    Example:
+        namecheap-cli privacy enable example.com me@gmail.com
+    """
+    nc = config.init_client()
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Enabling privacy for {domain}...", total=None)
+            success = nc.whoisguard.enable(domain, email)
+
+        if success:
+            console.print(f"[green]✅ Privacy enabled for {domain}[/green]")
+            console.print(f"[dim]Forwarding email: {email}[/dim]")
+        else:
+            console.print("[red]❌ Failed to enable privacy[/red]")
+            sys.exit(1)
+
+    except ValueError as e:
+        console.print(f"[red]❌ {e}[/red]")
+        sys.exit(1)
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
+@privacy_group.command("disable")
+@click.argument("domain")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@pass_config
+def privacy_disable(config: Config, domain: str, yes: bool) -> None:
+    """Disable domain privacy.
+
+    Example:
+        namecheap-cli privacy disable example.com
+    """
+    nc = config.init_client()
+
+    try:
+        if not yes and not config.quiet:
+            console.print(
+                f"\n[yellow]This will expose your WHOIS information for {domain}.[/yellow]"
+            )
+            if not Confirm.ask("Continue?", default=False):
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Disabling privacy for {domain}...", total=None)
+            success = nc.whoisguard.disable(domain)
+
+        if success:
+            console.print(f"[green]✅ Privacy disabled for {domain}[/green]")
+        else:
+            console.print("[red]❌ Failed to disable privacy[/red]")
+            sys.exit(1)
+
+    except ValueError as e:
+        console.print(f"[red]❌ {e}[/red]")
+        sys.exit(1)
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
+@privacy_group.command("renew")
+@click.argument("domain")
+@click.option("--years", "-y", type=int, default=1, help="Years to renew (1-9)")
+@click.option("--yes", is_flag=True, help="Skip confirmation")
+@pass_config
+def privacy_renew(config: Config, domain: str, years: int, yes: bool) -> None:
+    """Renew domain privacy subscription.
+
+    Example:
+        namecheap-cli privacy renew example.com --years 2
+    """
+    nc = config.init_client()
+
+    try:
+        if not yes and not config.quiet:
+            console.print(
+                f"\n[yellow]Renewing WhoisGuard for {domain} ({years} year{'s' if years > 1 else ''}).[/yellow]"
+            )
+            if not Confirm.ask("Continue?", default=True):
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Renewing privacy for {domain}...", total=None)
+            result = nc.whoisguard.renew(domain, years=years)
+
+        if result["is_renewed"]:
+            console.print(f"[green]✅ Privacy renewed for {domain}[/green]")
+            console.print(f"[dim]Charged: {result['charged_amount']}[/dim]")
+        else:
+            console.print("[red]❌ Failed to renew privacy[/red]")
+            sys.exit(1)
+
+    except ValueError as e:
+        console.print(f"[red]❌ {e}[/red]")
+        sys.exit(1)
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
+@privacy_group.command("change-email")
+@click.argument("domain")
+@pass_config
+def privacy_change_email(config: Config, domain: str) -> None:
+    """Rotate the privacy forwarding email address.
+
+    Namecheap generates a new masked email automatically.
+
+    Example:
+        namecheap-cli privacy change-email example.com
+    """
+    nc = config.init_client()
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Rotating privacy email for {domain}...", total=None)
+            result = nc.whoisguard.change_email(domain)
+
+        console.print(f"[green]✅ Privacy email rotated for {domain}[/green]")
+        console.print(f"  New: {result['new_email']}")
+        console.print(f"  Old: {result['old_email']}")
+
+    except ValueError as e:
+        console.print(f"[red]❌ {e}[/red]")
+        sys.exit(1)
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
 @cli.group("account")
 def account_group() -> None:
     """Account management commands."""

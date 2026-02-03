@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from ._api.dns import DnsAPI
     from ._api.domains import DomainsAPI
     from ._api.users import UsersAPI
+    from ._api.whoisguard import WhoisguardAPI
 
 
 class Namecheap:
@@ -110,6 +111,13 @@ class Namecheap:
         from ._api.dns import DnsAPI
 
         return DnsAPI(self)
+
+    @cached_property
+    def whoisguard(self) -> WhoisguardAPI:
+        """Domain privacy (WhoisGuard) management."""
+        from ._api.whoisguard import WhoisguardAPI
+
+        return WhoisguardAPI(self)
 
     @cached_property
     def users(self) -> UsersAPI:

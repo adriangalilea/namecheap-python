@@ -336,6 +336,17 @@ class Contact(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class DomainContacts(BaseModel):
+    """Contact information for all roles on a domain."""
+
+    registrant: Contact
+    tech: Contact
+    admin: Contact
+    aux_billing: Contact
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class Config(BaseModel):
     """Client configuration with validation."""
 

@@ -18,12 +18,13 @@ from .models import (
     DNSRecord,
     Domain,
     DomainCheck,
+    DomainContacts,
     DomainInfo,
     EmailForward,
     Nameservers,
 )
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = [
     "AccountBalance",
     "ConfigurationError",
@@ -31,6 +32,7 @@ __all__ = [
     "DNSRecord",
     "Domain",
     "DomainCheck",
+    "DomainContacts",
     "DomainInfo",
     "EmailForward",
     "Namecheap",

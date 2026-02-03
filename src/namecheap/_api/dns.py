@@ -528,3 +528,41 @@ class DnsAPI(BaseAPI):
             EmailForward(mailbox=f.get("@mailbox", ""), forward_to=f.get("#text", ""))
             for f in forwards
         ]
+
+    def set_email_forwarding(
+        self, domain: str, rules: list[EmailForward] | list[dict[str, str]]
+    ) -> bool:
+        """
+        Set email forwarding rules for a domain. Replaces all existing rules.
+
+        Args:
+            domain: Domain name
+            rules: List of EmailForward or dicts with 'mailbox' and 'forward_to' keys
+
+        Returns:
+            True if successful
+
+        Examples:
+            >>> nc.dns.set_email_forwarding("example.com", [
+            ...     EmailForward(mailbox="info", forward_to="me@gmail.com"),
+            ...     EmailForward(mailbox="support", forward_to="help@gmail.com"),
+            ... ])
+        """
+        assert rules, "At least one forwarding rule is required"
+
+        params: dict[str, Any] = {"DomainName": domain}
+        for i, rule in enumerate(rules, 1):
+            if isinstance(rule, EmailForward):
+                params[f"MailBox{i}"] = rule.mailbox
+                params[f"ForwardTo{i}"] = rule.forward_to
+            else:
+                params[f"MailBox{i}"] = rule["mailbox"]
+                params[f"ForwardTo{i}"] = rule["forward_to"]
+
+        result: Any = self._request(
+            "namecheap.domains.dns.setEmailForwarding",
+            params,
+            path="DomainDNSSetEmailForwardingResult",
+        )
+
+        return bool(result and result.get("@IsSuccess", "false").lower() == "true")

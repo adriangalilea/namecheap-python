@@ -9,7 +9,7 @@ from typing import Any
 import tldextract
 
 from namecheap.logging import logger
-from namecheap.models import Contact, Domain, DomainCheck, DomainInfo
+from namecheap.models import Contact, Domain, DomainCheck, DomainContacts, DomainInfo
 
 from .base import BaseAPI
 
@@ -155,6 +155,52 @@ class DomainsAPI(BaseAPI):
         }
 
         return DomainInfo.model_validate(flat)
+
+    def get_contacts(self, domain: str) -> DomainContacts:
+        """
+        Get contact information for a domain.
+
+        Args:
+            domain: Domain name
+
+        Returns:
+            DomainContacts with registrant, tech, admin, and aux_billing contacts
+
+        Examples:
+            >>> contacts = nc.domains.get_contacts("example.com")
+            >>> print(contacts.registrant.email)
+        """
+        result: Any = self._request(
+            "namecheap.domains.getContacts",
+            {"DomainName": domain},
+            path="DomainContactsResult",
+        )
+
+        assert result, f"API returned empty result for {domain} getContacts"
+
+        def parse_contact(data: dict[str, Any]) -> Contact:
+            return Contact.model_validate(
+                {
+                    "FirstName": data.get("FirstName", ""),
+                    "LastName": data.get("LastName", ""),
+                    "Organization": data.get("Organization"),
+                    "Address1": data.get("Address1", ""),
+                    "Address2": data.get("Address2"),
+                    "City": data.get("City", ""),
+                    "StateProvince": data.get("StateProvince", ""),
+                    "PostalCode": data.get("PostalCode", ""),
+                    "Country": data.get("Country", ""),
+                    "Phone": data.get("Phone", ""),
+                    "EmailAddress": data.get("EmailAddress", ""),
+                }
+            )
+
+        return DomainContacts(
+            registrant=parse_contact(result.get("Registrant", {})),
+            tech=parse_contact(result.get("Tech", {})),
+            admin=parse_contact(result.get("Admin", {})),
+            aux_billing=parse_contact(result.get("AuxBilling", {})),
+        )
 
     def register(
         self,

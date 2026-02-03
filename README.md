@@ -338,9 +338,24 @@ print(bal.funds_required_for_auto_renew)          # Decimal('20.16')
 ### Email Forwarding
 
 ```python
+# Read
 rules = nc.dns.get_email_forwarding("example.com")
 for r in rules:
     print(f"{r.mailbox} -> {r.forward_to}")
+
+# Write (replaces all existing rules)
+nc.dns.set_email_forwarding("example.com", [
+    EmailForward(mailbox="info", forward_to="me@gmail.com"),
+    EmailForward(mailbox="support", forward_to="help@gmail.com"),
+])
+```
+
+### Domain Contacts
+
+```python
+contacts = nc.domains.get_contacts("example.com")
+print(f"{contacts.registrant.first_name} {contacts.registrant.last_name}")
+print(contacts.registrant.email)
 ```
 
 ### Domain Management
@@ -420,11 +435,10 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 
 | API | Status | Methods |
 |-----|--------|---------|
-| `namecheap.domains.*` | ✅ Done | `check`, `list`, `getInfo`, `register`, `renew`, `setContacts`, `lock`/`unlock` |
-| `namecheap.domains.dns.*` | ✅ Done | `getHosts`, `setHosts` (builder pattern), `add`, `delete`, `export`, `getList`, `setCustom`, `setDefault`, `getEmailForwarding` |
+| `namecheap.domains.*` | ✅ Done | `check`, `list`, `getInfo`, `getContacts`, `register`, `renew`, `setContacts`, `lock`/`unlock` |
+| `namecheap.domains.dns.*` | ✅ Done | `getHosts`, `setHosts` (builder pattern), `add`, `delete`, `export`, `getList`, `setCustom`, `setDefault`, `getEmailForwarding`, `setEmailForwarding` |
 | `namecheap.users.*` | ⚠️ Partial | `getBalances`, `getPricing` (needs debugging). Planned: `changePassword`, `update`, `create`, `login`, `resetPassword` |
-| `namecheap.domains.*` | 🚧 Planned | `getContacts`, `getTldList`, `reactivate` |
-| `namecheap.domains.dns.*` | 🚧 Planned | `setEmailForwarding` |
+| `namecheap.domains.*` | 🚧 Planned | `getTldList`, `reactivate` |
 | `namecheap.users.address.*` | 🚧 Planned | `create`, `delete`, `getInfo`, `getList`, `setDefault`, `update` |
 | `namecheap.ssl.*` | 🚧 Planned | `create`, `activate`, `renew`, `revoke`, `getList`, `getInfo`, `parseCSR`, `reissue`, and more |
 | `namecheap.domains.transfer.*` | 🚧 Planned | `create`, `getStatus`, `updateStatus`, `getList` |

@@ -919,6 +919,103 @@ def dns_email_forwarding(config: Config, domain: str) -> None:
         sys.exit(1)
 
 
+@dns_group.command("set-email-forwarding")
+@click.argument("domain")
+@click.argument("rules", nargs=-1, required=True)
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@pass_config
+def dns_set_email_forwarding(
+    config: Config, domain: str, rules: tuple[str, ...], yes: bool
+) -> None:
+    """Set email forwarding rules. Replaces all existing rules.
+
+    Rules are in mailbox:forward_to format.
+
+    Example:
+        namecheap-cli dns set-email-forwarding example.com info:me@gmail.com support:help@gmail.com
+    """
+    nc = config.init_client()
+
+    parsed = []
+    for rule in rules:
+        assert ":" in rule, f"Invalid rule format '{rule}', expected mailbox:forward_to"
+        mailbox, forward_to = rule.split(":", 1)
+        parsed.append({"mailbox": mailbox, "forward_to": forward_to})
+
+    try:
+        if not yes and not config.quiet:
+            console.print(f"\n[yellow]Setting email forwarding for {domain}:[/yellow]")
+            for p in parsed:
+                console.print(f"  • {p['mailbox']}@{domain} → {p['forward_to']}")
+            console.print()
+
+            if not Confirm.ask("Continue?", default=True):
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Setting email forwarding for {domain}...", total=None)
+            success = nc.dns.set_email_forwarding(domain, parsed)
+
+        if success:
+            console.print("[green]✅ Email forwarding updated successfully![/green]")
+        else:
+            console.print("[red]❌ Failed to update email forwarding[/red]")
+            sys.exit(1)
+
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
+@domain_group.command("contacts")
+@click.argument("domain")
+@pass_config
+def domain_contacts(config: Config, domain: str) -> None:
+    """Show contact information for a domain."""
+    nc = config.init_client()
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Getting contacts for {domain}...", total=None)
+            contacts = nc.domains.get_contacts(domain)
+
+        if config.output_format == "table":
+            for role, contact in [
+                ("Registrant", contacts.registrant),
+                ("Tech", contacts.tech),
+                ("Admin", contacts.admin),
+                ("Billing", contacts.aux_billing),
+            ]:
+                console.print(f"\n[bold cyan]{role}[/bold cyan]")
+                console.print(f"  {contact.first_name} {contact.last_name}")
+                if contact.organization:
+                    console.print(f"  {contact.organization}")
+                console.print(f"  {contact.email}")
+                console.print(f"  {contact.phone}")
+                console.print(f"  {contact.address1}")
+                if contact.address2:
+                    console.print(f"  {contact.address2}")
+                console.print(
+                    f"  {contact.city}, {contact.state_province} {contact.postal_code}"
+                )
+                console.print(f"  {contact.country}")
+        else:
+            output_formatter(contacts.model_dump(), config.output_format)
+
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
 @cli.group("account")
 def account_group() -> None:
     """Account management commands."""

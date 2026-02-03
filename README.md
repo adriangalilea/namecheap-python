@@ -375,3 +375,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request. See the [Development Guide](docs/dev/README.md) for setup instructions and guidelines.
+
+### Contributors
+
+- [@cosmin](https://github.com/cosmin) — Nameserver management

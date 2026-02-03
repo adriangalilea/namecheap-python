@@ -750,10 +750,6 @@ def dns_set_nameservers(
     """
     nc = config.init_client()
 
-    if not nameservers:
-        console.print("[red]❌ At least one nameserver is required[/red]")
-        sys.exit(1)
-
     try:
         if not yes and not config.quiet:
             console.print(f"\n[yellow]Setting custom nameservers for {domain}:[/yellow]")

@@ -406,6 +406,8 @@ class DnsAPI(BaseAPI):
         """
         if not nameservers:
             raise ValueError("At least one nameserver is required")
+        if len(nameservers) > 5:
+            raise ValueError("Maximum of 5 nameservers allowed")
 
         # Parse domain
         ext = tldextract.extract(domain)

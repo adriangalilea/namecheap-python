@@ -482,12 +482,12 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 | `namecheap.domains.*` | ✅ Done | `check`, `list`, `getInfo`, `getContacts`, `getTldList`, `register`, `renew`, `setContacts`, `lock`/`unlock` |
 | `namecheap.domains.dns.*` | ✅ Done | `getHosts`, `setHosts` (builder pattern), `add`, `delete`, `export`, `getList`, `setCustom`, `setDefault`, `getEmailForwarding`, `setEmailForwarding` |
 | `namecheap.whoisguard.*` | ✅ Done | `getList`, `enable`, `disable`, `renew`, `changeEmailAddress` |
-| `namecheap.users.*` | ⚠️ Partial | `getBalances`, `getPricing` (needs debugging). Planned: `changePassword`, `update`, `create`, `login`, `resetPassword` |
-| `namecheap.users.address.*` | 🚧 Planned | `create`, `delete`, `getInfo`, `getList`, `setDefault`, `update` |
-| `namecheap.ssl.*` | 🚧 Planned | `create`, `activate`, `renew`, `revoke`, `getList`, `getInfo`, `parseCSR`, `reissue`, and more |
-| `namecheap.domains.transfer.*` | 🚧 Planned | `create`, `getStatus`, `updateStatus`, `getList` |
-| `namecheap.domains.ns.*` | 🚧 Planned | Glue records — `create`, `delete`, `getInfo`, `update` |
-| `namecheap.domains.*` | 🚧 Planned | `reactivate` |
+| `namecheap.users.*` | ⚠️ Partial | `getBalances`, `getPricing` (needs debugging). Remaining methods are account management (`changePassword`, `update`, `create`, `login`, `resetPassword`) — only useful if building a reseller platform |
+| `namecheap.users.address.*` | 🚧 Planned | Saved address book for `domains.register()` — store contacts once, reuse by ID instead of passing full contact info every time |
+| `namecheap.ssl.*` | 🚧 Planned | Full SSL certificate lifecycle — purchase, activate with CSR, renew, revoke, reissue. Complex multi-step workflows with approval emails |
+| `namecheap.domains.transfer.*` | 🚧 Planned | Transfer domains into Namecheap programmatically — initiate, track status, retry |
+| `namecheap.domains.ns.*` | 🚧 Planned | Glue records — only needed if you run your own nameservers and need to register them with the registry |
+| `namecheap.domains.*` | 🚧 Planned | `reactivate` — restore expired domains within the redemption grace period |
 
 ## 🛠️ Development
 

@@ -419,6 +419,15 @@ except NamecheapError as e:
 
 This section documents undocumented or unusual Namecheap API behaviors we've discovered:
 
+### No WHOIS lookups or Marketplace data
+
+The Namecheap API only operates on domains **in your account**. There is no API for:
+- WHOIS lookups on arbitrary domains
+- Checking if a domain is listed on [Namecheap Marketplace](https://www.namecheap.com/domains/marketplace/)
+- Aftermarket pricing or availability
+
+`domains.check()` tells you if a domain is **unregistered**, not if it's for sale by its owner.
+
 ### TTL "Automatic" = 1799 seconds
 
 The Namecheap web interface displays TTL as **"Automatic"** when the value is exactly **1799 seconds**, but shows **"30 min"** when it's **1800 seconds**. This behavior is completely undocumented in their official API documentation.

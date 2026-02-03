@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from .client import Namecheap
 from .errors import ConfigurationError, NamecheapError, ValidationError
-from .models import Contact, DNSRecord, Domain, DomainCheck
+from .models import Contact, DNSRecord, Domain, DomainCheck, Nameservers
 
-__version__ = "1.0.5"
+__version__ = "1.1.0"
 __all__ = [
     "ConfigurationError",
     "Contact",
@@ -23,5 +23,6 @@ __all__ = [
     "DomainCheck",
     "Namecheap",
     "NamecheapError",
+    "Nameservers",
     "ValidationError",
 ]

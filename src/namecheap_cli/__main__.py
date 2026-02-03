@@ -714,19 +714,19 @@ def dns_nameservers(config: Config, domain: str) -> None:
             transient=True,
         ) as progress:
             progress.add_task(f"Getting nameserver info for {domain}...", total=None)
-            info = nc.dns.get_nameserver_info(domain)
+            ns = nc.dns.get_nameservers(domain)
 
         if config.output_format == "table":
             console.print(f"\n[bold cyan]Nameservers for {domain}[/bold cyan]\n")
 
-            if info["using_default"]:
+            if ns.is_default:
                 console.print("[green]Using Namecheap BasicDNS[/green]")
             else:
                 console.print("[yellow]Using custom nameservers:[/yellow]")
-                for ns in info["nameservers"]:
-                    console.print(f"  • {ns}")
+            for nameserver in ns.nameservers:
+                console.print(f"  • {nameserver}")
         else:
-            output_formatter(info, config.output_format)
+            output_formatter(ns.model_dump(), config.output_format)
 
     except NamecheapError as e:
         console.print(f"[red]❌ Error: {e}[/red]")
@@ -752,7 +752,9 @@ def dns_set_nameservers(
 
     try:
         if not yes and not config.quiet:
-            console.print(f"\n[yellow]Setting custom nameservers for {domain}:[/yellow]")
+            console.print(
+                f"\n[yellow]Setting custom nameservers for {domain}:[/yellow]"
+            )
             for ns in nameservers:
                 console.print(f"  • {ns}")
             console.print()
@@ -809,15 +811,11 @@ def dns_reset_nameservers(config: Config, domain: str, yes: bool) -> None:
             TextColumn("[progress.description]{task.description}"),
             transient=True,
         ) as progress:
-            progress.add_task(
-                f"Resetting nameservers for {domain}...", total=None
-            )
+            progress.add_task(f"Resetting nameservers for {domain}...", total=None)
             success = nc.dns.set_default_nameservers(domain)
 
         if success:
-            console.print(
-                f"[green]✅ {domain} is now using Namecheap BasicDNS[/green]"
-            )
+            console.print(f"[green]✅ {domain} is now using Namecheap BasicDNS[/green]")
         else:
             console.print("[red]❌ Failed to reset nameservers[/red]")
             sys.exit(1)

@@ -251,6 +251,13 @@ class Domain(XMLModel):
         raise ValueError(f"Cannot parse datetime from {v}")
 
 
+class Nameservers(BaseModel):
+    """Current nameserver configuration for a domain."""
+
+    is_default: bool = Field(description="True when using Namecheap's own DNS")
+    nameservers: list[str] = Field(description="Nameserver hostnames")
+
+
 class Contact(BaseModel):
     """Contact information for domain registration."""
 

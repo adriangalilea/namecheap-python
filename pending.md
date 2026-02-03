@@ -32,11 +32,11 @@ Based on the previous Namecheap Python SDK implementation, here's what's still p
 - `updateStatus()` - Approve/reject transfer
 - `getList()` - List pending transfers
 
-### 4. **Domains NS API** (`namecheap.domains.ns.*`)
-- `create()` - Create nameserver
-- `delete()` - Delete nameserver
-- `getInfo()` - Get nameserver details
-- `update()` - Update nameserver IP
+### 4. **Domains NS API** (`namecheap.domains.ns.*`) — Glue Records
+- `create()` - Register a child nameserver (e.g., ns1.yourdomain.com → 1.2.3.4)
+- `delete()` - Delete a child nameserver
+- `getInfo()` - Get child nameserver details
+- `update()` - Update child nameserver IP
 
 ### 5. **Whois API** (`namecheap.whois.*`)
 - `getWhoisInfo()` - Get WHOIS information
@@ -62,7 +62,7 @@ Based on the previous Namecheap Python SDK implementation, here's what's still p
 - ✅ `delete()` - Delete records
 - ✅ `set_custom_nameservers()` - Switch to custom nameservers (e.g., Route 53)
 - ✅ `set_default_nameservers()` - Reset to Namecheap BasicDNS
-- ✅ `get_nameserver_info()` - Get current nameserver configuration
+- ✅ `get_nameservers()` - Get current nameserver configuration
 
 ### Enhanced Features
 - ✅ Smart IP detection and validation

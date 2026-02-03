@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import tldextract
 
-from namecheap.models import DNSRecord
+from namecheap.models import DNSRecord, Nameservers
 
 from .base import BaseAPI
 
@@ -404,12 +404,9 @@ class DnsAPI(BaseAPI):
             ...     "ns-012.awsdns-12.co.uk",
             ... ])
         """
-        if not nameservers:
-            raise ValueError("At least one nameserver is required")
-        if len(nameservers) > 5:
-            raise ValueError("Maximum of 5 nameservers allowed")
+        assert nameservers, "At least one nameserver is required"
+        assert len(nameservers) <= 5, "Maximum of 5 nameservers allowed"
 
-        # Parse domain
         ext = tldextract.extract(domain)
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
@@ -441,7 +438,6 @@ class DnsAPI(BaseAPI):
         Examples:
             >>> nc.dns.set_default_nameservers("example.com")
         """
-        # Parse domain
         ext = tldextract.extract(domain)
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
@@ -457,29 +453,23 @@ class DnsAPI(BaseAPI):
 
         return bool(result and result.get("@Updated") == "true")
 
-    def get_nameserver_info(self, domain: str) -> dict[str, Any]:
+    def get_nameservers(self, domain: str) -> Nameservers:
         """
-        Get nameserver information for a domain.
-
-        Returns information about whether the domain is using Namecheap's
-        default DNS or custom nameservers.
+        Get current nameservers for a domain.
 
         Args:
             domain: Domain name
 
         Returns:
-            Dict with nameserver info including:
-            - using_default: Whether using Namecheap's default DNS
-            - nameservers: List of current nameservers (if custom)
+            Nameservers with is_default flag and nameserver hostnames
 
         Examples:
-            >>> info = nc.dns.get_nameserver_info("example.com")
-            >>> if info["using_default"]:
-            ...     print("Using Namecheap DNS")
-            ... else:
-            ...     print(f"Custom NS: {info['nameservers']}")
+            >>> ns = nc.dns.get_nameservers("example.com")
+            >>> ns.is_default
+            True
+            >>> ns.nameservers
+            ['dns1.registrar-servers.com', 'dns2.registrar-servers.com']
         """
-        # Parse domain
         ext = tldextract.extract(domain)
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
@@ -493,20 +483,14 @@ class DnsAPI(BaseAPI):
             path="DomainDNSGetListResult",
         )
 
-        if not result:
-            return {"using_default": True, "nameservers": []}
+        assert result, f"API returned empty result for {domain} nameserver query"
 
-        using_default = result.get("@IsUsingOurDNS", "false").lower() == "true"
+        is_default = result.get("@IsUsingOurDNS", "false").lower() == "true"
 
-        # Extract nameservers
-        nameservers = []
         ns_data = result.get("Nameserver", [])
-        if isinstance(ns_data, str):
-            nameservers = [ns_data]
-        elif isinstance(ns_data, list):
-            nameservers = ns_data
+        assert isinstance(ns_data, str | list), (
+            f"Unexpected Nameserver type: {type(ns_data)}"
+        )
+        nameservers = [ns_data] if isinstance(ns_data, str) else ns_data
 
-        return {
-            "using_default": using_default,
-            "nameservers": nameservers,
-        }
+        return Nameservers(is_default=is_default, nameservers=nameservers)

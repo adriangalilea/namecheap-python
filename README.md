@@ -351,18 +351,19 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1799)  # Shows as "Automatic"
 nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 ```
 
-## 🚧 Pending Features
+## 📊 API Coverage
 
-The following Namecheap API features are planned for future releases:
-
-- **SSL API** - Certificate management
-- **Domain Transfer API** - Transfer domains between registrars
-- **Domain NS API** - Glue record management (child nameservers)
-- **Users API** - Account management and balance checking
-- **Whois API** - WHOIS information lookups
-- **Email Forwarding** - Email forwarding configuration
-
-See [pending.md](pending.md) for full details.
+| API | Status | Methods |
+|-----|--------|---------|
+| `namecheap.domains.*` | ✅ Done | `check`, `list`, `register`, `renew`, `setContacts`, `lock`/`unlock` |
+| `namecheap.domains.dns.*` | ✅ Done | `get`, `set` (builder pattern), `add`, `delete`, `export`, `get_nameservers`, `set_custom_nameservers`, `set_default_nameservers` |
+| `namecheap.users.getPricing` | ⚠️ Partial | `include_pricing=True` on domain check needs debugging |
+| `namecheap.ssl.*` | 🚧 Planned | Certificate management (create, activate, renew, revoke, list) |
+| `namecheap.domains.transfer.*` | 🚧 Planned | Initiate, status, approve/reject transfers |
+| `namecheap.domains.ns.*` | 🚧 Planned | Glue records — create/delete/update child nameservers (`ns1.yourdomain.com`) |
+| `namecheap.users.*` | 🚧 Planned | Account management, balance, sub-accounts |
+| `namecheap.whois.*` | 🚧 Planned | WHOIS lookups |
+| Email Forwarding | 🚧 Planned | Email forwarding configuration |
 
 ## 🛠️ Development
 

@@ -378,4 +378,6 @@ Contributions are welcome! Please feel free to submit a Pull Request. See the [D
 
 ### Contributors
 
+- [@huntertur](https://github.com/huntertur) — Rich dependency fix
+- [@jeffmcadams](https://github.com/jeffmcadams) — Domain serialization round-trip
 - [@cosmin](https://github.com/cosmin) — Nameserver management

@@ -501,6 +501,12 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 | `namecheap.domains.ns.*` | 🚧 Planned | Glue records — only needed if you run your own nameservers and need to register them with the registry |
 | `namecheap.domains.*` | 🚧 Planned | `reactivate` — restore expired domains within the redemption grace period |
 
+## 🤖 Claude Code Integration
+
+The CLI works in [Claude Code](https://docs.anthropic.com/en/docs/claude-code) today — Claude can call `namecheap-cli` commands via Bash tool calls. A dedicated **Claude Code skill** is planned that will teach Claude the available commands, flag destructive operations for confirmation, and encode common workflows (GitHub Pages setup, Vercel nameservers, Cloudflare migration).
+
+The goal: tell Claude "set up mycoolproject.dev for Vercel" and it handles registration, DNS, and privacy without leaving the conversation.
+
 ## 🛠️ Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and development guidelines.

@@ -335,6 +335,18 @@ print(f"{bal.available_balance} {bal.currency}")  # '4932.96 USD'
 print(bal.funds_required_for_auto_renew)          # Decimal('20.16')
 ```
 
+### Pricing
+
+```python
+# Get registration pricing for a specific TLD
+pricing = nc.users.get_pricing("DOMAIN", action="REGISTER", product_name="com")
+for p in pricing["REGISTER"]["com"]:
+    print(f"{p.duration} year: ${p.your_price} (regular: ${p.regular_price})")
+
+# Get all domain pricing (large response — cache it)
+all_pricing = nc.users.get_pricing("DOMAIN")
+```
+
 ### Email Forwarding
 
 ```python
@@ -482,7 +494,7 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 | `namecheap.domains.*` | ✅ Done | `check`, `list`, `getInfo`, `getContacts`, `getTldList`, `register`, `renew`, `setContacts`, `lock`/`unlock` |
 | `namecheap.domains.dns.*` | ✅ Done | `getHosts`, `setHosts` (builder pattern), `add`, `delete`, `export`, `getList`, `setCustom`, `setDefault`, `getEmailForwarding`, `setEmailForwarding` |
 | `namecheap.whoisguard.*` | ✅ Done | `getList`, `enable`, `disable`, `renew`, `changeEmailAddress` |
-| `namecheap.users.*` | ⚠️ Partial | `getBalances`, `getPricing` (needs debugging). Remaining methods are account management (`changePassword`, `update`, `create`, `login`, `resetPassword`) — only useful if building a reseller platform |
+| `namecheap.users.*` | ⚠️ Partial | `getBalances`, `getPricing`. Remaining methods are account management (`changePassword`, `update`, `create`, `login`, `resetPassword`) — only useful if building a reseller platform |
 | `namecheap.users.address.*` | 🚧 Planned | Saved address book for `domains.register()` — store contacts once, reuse by ID instead of passing full contact info every time |
 | `namecheap.ssl.*` | 🚧 Planned | Full SSL certificate lifecycle — purchase, activate with CSR, renew, revoke, reissue. Complex multi-step workflows with approval emails |
 | `namecheap.domains.transfer.*` | 🚧 Planned | Transfer domains into Namecheap programmatically — initiate, track status, retry |

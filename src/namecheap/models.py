@@ -423,6 +423,34 @@ class WhoisguardEntry(BaseModel):
         return int(v) if v else 0
 
 
+class ProductPrice(BaseModel):
+    """A single price entry for a product at a specific duration."""
+
+    duration: int = Field(alias="@Duration")
+    duration_type: str = Field(alias="@DurationType", default="YEAR")
+    price: Decimal = Field(alias="@Price")
+    regular_price: Decimal = Field(alias="@RegularPrice")
+    your_price: Decimal = Field(alias="@YourPrice")
+    coupon_price: Decimal | None = Field(alias="@CouponPrice", default=None)
+    currency: str = Field(alias="@Currency", default="USD")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator(
+        "price", "regular_price", "your_price", "coupon_price", mode="before"
+    )
+    @classmethod
+    def parse_decimal(cls, v: Any) -> Decimal | None:
+        if v is None or v == "":
+            return None
+        return Decimal(str(v))
+
+    @field_validator("duration", mode="before")
+    @classmethod
+    def parse_duration(cls, v: Any) -> int:
+        return int(v) if v else 1
+
+
 class Config(BaseModel):
     """Client configuration with validation."""
 

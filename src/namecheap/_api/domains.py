@@ -418,153 +418,35 @@ class DomainsAPI(BaseAPI):
     def _get_pricing(
         self, domains: builtins.list[str]
     ) -> dict[str, dict[str, Decimal | None]]:
+        """Get 1-year registration pricing for a list of domains.
+
+        Groups by TLD, fetches pricing via users.get_pricing(), and maps
+        back to individual domain names.
         """
-        Get pricing information for domains.
+        pricing: dict[str, dict[str, Decimal | None]] = {}
 
-        Args:
-            domains: List of domain names
-
-        Returns:
-            Dict mapping domain to pricing info
-        """
-        pricing = {}
-        logger.debug(f"Getting pricing for domains: {domains}")
-
-        # Group domains by TLD for efficient API calls
+        # Group domains by TLD
         tld_groups: dict[str, builtins.list[str]] = {}
         for domain in domains:
-            ext = tldextract.extract(domain)
-            tld = ext.suffix
+            tld = tldextract.extract(domain).suffix
             if tld not in tld_groups:
                 tld_groups[tld] = []
             tld_groups[tld].append(domain)
 
-        logger.debug(f"TLD groups: {tld_groups}")
-
-        # Fetch pricing for each TLD group
         for tld, domain_list in tld_groups.items():
-            try:
-                logger.debug(f"Fetching pricing for TLD: {tld}")
-                # Get pricing for this TLD
-                result: Any = self._request(
-                    "namecheap.users.getPricing",
-                    {
-                        "ProductType": "DOMAIN",
-                        "ActionName": "REGISTER",
-                        "ProductName": tld,
-                    },
-                    path="UserGetPricingResult.ProductType",
-                )
-                assert isinstance(result, dict)
-                logger.debug(f"Pricing API response for {tld}: {result}")
-                logger.debug(f"Response type: {type(result)}")
-                logger.debug(
-                    f"Response keys: "
-                    f"{list(result.keys()) if isinstance(result, dict) else 'Not a dict'}"
-                )
+            result = self.client.users.get_pricing(
+                "DOMAIN", action="REGISTER", product_name=tld
+            )
+            prices = result.get("REGISTER", {}).get(tld, [])
 
-                # Extract pricing info
-                if isinstance(result, dict):
-                    logger.debug(f"Parsing pricing response for {tld}")
-
-                    # Get ProductCategory (could be a list or single dict)
-                    categories = result.get("ProductCategory", {})
-                    if not isinstance(categories, list):
-                        categories = [categories] if categories else []
-
-                    logger.debug(f"Found {len(categories)} categories")
-
-                    # Look for REGISTER category
-                    for category in categories:
-                        if not isinstance(category, dict):
-                            continue
-
-                        # Use normalized name for consistent access
-                        category_name = category.get("@Name", "")
-                        category_name_normalized = category.get(
-                            "@Name_normalized", category_name.lower()
-                        )
-                        logger.debug(
-                            f"Checking category: {category_name} "
-                            f"(normalized: {category_name_normalized})"
-                        )
-
-                        if category_name_normalized == "register":
-                            # Get products in this category
-                            products = category.get("Product", {})
-                            if not isinstance(products, list):
-                                products = [products] if products else []
-
-                            logger.debug(
-                                f"Found {len(products)} products in REGISTER category"
-                            )
-
-                            # Find the product matching our TLD
-                            for product in products:
-                                if not isinstance(product, dict):
-                                    continue
-
-                                product_name = product.get("@Name", "")
-                                logger.debug(
-                                    f"Checking product: {product_name} vs {tld}"
-                                )
-
-                                if product_name.lower() == tld.lower():
-                                    # Get price list
-                                    price_info = product.get("Price", [])
-                                    if not isinstance(price_info, list):
-                                        price_info = [price_info] if price_info else []
-
-                                    logger.debug(
-                                        f"Found {len(price_info)} price entries for {tld}"
-                                    )
-
-                                    # Find 1 year price
-                                    for price in price_info:
-                                        if not isinstance(price, dict):
-                                            continue
-
-                                        duration = price.get("@Duration", "")
-                                        if duration == "1":
-                                            regular_price = price.get("@RegularPrice")
-                                            your_price = price.get("@YourPrice")
-                                            retail_price = price.get("@RetailPrice")
-
-                                            # Get additional cost
-                                            # (normalization handles their typo)
-                                            price.get("@YourAdditionalCost", "0")
-
-                                            logger.debug(
-                                                f"Found prices for {tld}: "
-                                                f"regular={regular_price}, "
-                                                f"your={your_price}, "
-                                                f"retail={retail_price}"
-                                            )
-
-                                            # Apply to all domains with this TLD
-                                            for domain in domain_list:
-                                                pricing[domain] = {
-                                                    "regular_price": Decimal(
-                                                        regular_price
-                                                    )
-                                                    if regular_price
-                                                    else None,
-                                                    "your_price": Decimal(your_price)
-                                                    if your_price
-                                                    else None,
-                                                    "retail_price": Decimal(
-                                                        retail_price
-                                                    )
-                                                    if retail_price
-                                                    else None,
-                                                }
-                                            break
-                                    break
-                            break
-
-            except Exception as e:
-                # If pricing fails, continue without it
-                logger.error(f"Failed to get pricing for TLD {tld}: {e}")
-                logger.debug("Full error:", exc_info=True)
+            for p in prices:
+                if p.duration == 1:
+                    for domain in domain_list:
+                        pricing[domain] = {
+                            "regular_price": p.regular_price,
+                            "your_price": p.your_price,
+                            "retail_price": None,
+                        }
+                    break
 
         return pricing

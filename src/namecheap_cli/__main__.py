@@ -1350,6 +1350,87 @@ def account_balance(config: Config) -> None:
         sys.exit(1)
 
 
+@account_group.command("pricing")
+@click.argument("tld", required=False)
+@click.option(
+    "--action",
+    "-a",
+    type=click.Choice(
+        ["REGISTER", "RENEW", "TRANSFER", "REACTIVATE"], case_sensitive=False
+    ),
+    default="REGISTER",
+    help="Pricing action",
+)
+@pass_config
+def account_pricing(config: Config, tld: str | None, action: str) -> None:
+    """Get domain pricing. Optionally filter by TLD.
+
+    Examples:
+        namecheap-cli account pricing com
+        namecheap-cli account pricing --action RENEW
+        namecheap-cli account pricing io --action REGISTER
+    """
+    nc = config.init_client()
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task("Getting pricing...", total=None)
+            pricing = nc.users.get_pricing(
+                "DOMAIN",
+                action=action.upper(),
+                product_name=tld,
+            )
+
+        action_products = pricing.get(action.upper(), {})
+
+        if config.output_format == "table":
+            if not action_products:
+                console.print("[yellow]No pricing data found[/yellow]")
+                return
+
+            table = Table(title=f"Domain Pricing — {action.upper()}")
+            table.add_column("TLD", style="cyan")
+            table.add_column("Duration", justify="center")
+            table.add_column("Price", style="green", justify="right")
+            table.add_column("Regular", style="dim", justify="right")
+            table.add_column("Your Price", style="yellow", justify="right")
+
+            for product_name, prices in sorted(action_products.items()):
+                for p in prices:
+                    table.add_row(
+                        f".{product_name}",
+                        f"{p.duration} {'year' if p.duration == 1 else 'years'}",
+                        f"${p.price}" if p.price else "-",
+                        f"${p.regular_price}" if p.regular_price else "-",
+                        f"${p.your_price}" if p.your_price else "-",
+                    )
+
+            console.print(table)
+        else:
+            data = []
+            for product_name, prices in action_products.items():
+                for p in prices:
+                    data.append(
+                        {
+                            "tld": product_name,
+                            "duration": p.duration,
+                            "price": str(p.price),
+                            "regular_price": str(p.regular_price),
+                            "your_price": str(p.your_price),
+                            "currency": p.currency,
+                        }
+                    )
+            output_formatter(data, config.output_format)
+
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
 @cli.group("config")
 def config_group() -> None:
     """Configuration management commands."""

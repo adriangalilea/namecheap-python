@@ -367,7 +367,7 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 
 ## 🛠️ Development
 
-See [Development Guide](docs/dev/README.md) for detailed development instructions.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and development guidelines.
 
 ## 📝 License
 

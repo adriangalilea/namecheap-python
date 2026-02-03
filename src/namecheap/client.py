@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
     from ._api.dns import DnsAPI
     from ._api.domains import DomainsAPI
+    from ._api.users import UsersAPI
 
 
 class Namecheap:
@@ -109,6 +110,13 @@ class Namecheap:
         from ._api.dns import DnsAPI
 
         return DnsAPI(self)
+
+    @cached_property
+    def users(self) -> UsersAPI:
+        """User account operations."""
+        from ._api.users import UsersAPI
+
+        return UsersAPI(self)
 
     def __enter__(self) -> Self:
         """Enter context manager."""

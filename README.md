@@ -170,6 +170,38 @@ Adding CNAME record to tdo.garden...
 ```
 
 
+Check account balance:
+
+```bash
+❯ namecheap-cli account balance
+          Account Balance
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Field               ┃    Amount ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ Available Balance   │  0.00 USD │
+│ Account Balance     │  0.00 USD │
+│ Earned Amount       │  0.00 USD │
+│ Withdrawable        │  0.00 USD │
+│ Auto-Renew Required │ 20.16 USD │
+└─────────────────────┴───────────┘
+```
+
+Get detailed domain info:
+
+```bash
+❯ namecheap-cli domain info self.fm
+
+Domain Information: self.fm
+
+Status: Ok
+Owner: adriangalilea
+Created: 07/15/2023
+Expires: 07/15/2026
+Premium: No
+WHOIS Guard: ✓ Enabled
+DNS Provider: CUSTOM
+```
+
 You can also export DNS records:
 
 ```bash
@@ -284,6 +316,33 @@ nc.dns.set_custom_nameservers("example.com", [
 nc.dns.set_default_nameservers("example.com")
 ```
 
+### Domain Info
+
+```python
+info = nc.domains.get_info("example.com")
+print(info.status)              # 'Ok'
+print(info.whoisguard_enabled)  # True
+print(info.dns_provider)        # 'CUSTOM'
+print(info.created)             # '07/15/2023'
+print(info.expires)             # '07/15/2026'
+```
+
+### Account Balance
+
+```python
+bal = nc.users.get_balances()
+print(f"{bal.available_balance} {bal.currency}")  # '4932.96 USD'
+print(bal.funds_required_for_auto_renew)          # Decimal('20.16')
+```
+
+### Email Forwarding
+
+```python
+rules = nc.dns.get_email_forwarding("example.com")
+for r in rules:
+    print(f"{r.mailbox} -> {r.forward_to}")
+```
+
 ### Domain Management
 
 ```python
@@ -361,11 +420,11 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 
 | API | Status | Methods |
 |-----|--------|---------|
-| `namecheap.domains.*` | ✅ Done | `check`, `list`, `register`, `renew`, `setContacts`, `lock`/`unlock` |
-| `namecheap.domains.dns.*` | ✅ Done | `getHosts`, `setHosts` (builder pattern), `add`, `delete`, `export`, `getList`, `setCustom`, `setDefault` |
-| `namecheap.domains.*` | 🚧 Planned | `getInfo`, `getContacts`, `getTldList`, `reactivate` |
-| `namecheap.domains.dns.*` | 🚧 Planned | `getEmailForwarding`, `setEmailForwarding` |
-| `namecheap.users.*` | ⚠️ Partial | `getPricing` (needs debugging). Planned: `getBalances`, `changePassword`, `update`, `create`, `login`, `resetPassword` |
+| `namecheap.domains.*` | ✅ Done | `check`, `list`, `getInfo`, `register`, `renew`, `setContacts`, `lock`/`unlock` |
+| `namecheap.domains.dns.*` | ✅ Done | `getHosts`, `setHosts` (builder pattern), `add`, `delete`, `export`, `getList`, `setCustom`, `setDefault`, `getEmailForwarding` |
+| `namecheap.users.*` | ⚠️ Partial | `getBalances`, `getPricing` (needs debugging). Planned: `changePassword`, `update`, `create`, `login`, `resetPassword` |
+| `namecheap.domains.*` | 🚧 Planned | `getContacts`, `getTldList`, `reactivate` |
+| `namecheap.domains.dns.*` | 🚧 Planned | `setEmailForwarding` |
 | `namecheap.users.address.*` | 🚧 Planned | `create`, `delete`, `getInfo`, `getList`, `setDefault`, `update` |
 | `namecheap.ssl.*` | 🚧 Planned | `create`, `activate`, `renew`, `revoke`, `getList`, `getInfo`, `parseCSR`, `reissue`, and more |
 | `namecheap.domains.transfer.*` | 🚧 Planned | `create`, `getStatus`, `updateStatus`, `getList` |

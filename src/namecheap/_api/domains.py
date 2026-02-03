@@ -9,7 +9,7 @@ from typing import Any
 import tldextract
 
 from namecheap.logging import logger
-from namecheap.models import Contact, Domain, DomainCheck
+from namecheap.models import Contact, Domain, DomainCheck, DomainInfo
 
 from .base import BaseAPI
 
@@ -109,6 +109,52 @@ class DomainsAPI(BaseAPI):
         if isinstance(results, Domain):
             return [results]
         return results if isinstance(results, list) else []
+
+    def get_info(self, domain: str) -> DomainInfo:
+        """
+        Get detailed information about a domain.
+
+        Args:
+            domain: Domain name
+
+        Returns:
+            DomainInfo with status, whoisguard, DNS provider, etc.
+
+        Examples:
+            >>> info = nc.domains.get_info("example.com")
+            >>> print(f"{info.domain} status={info.status} whoisguard={info.whoisguard_enabled}")
+        """
+        result: Any = self._request(
+            "namecheap.domains.getInfo",
+            {"DomainName": domain},
+            path="DomainGetInfoResult",
+        )
+
+        assert result, f"API returned empty result for {domain} getInfo"
+
+        # Extract nested fields into flat structure
+        domain_details = result.get("DomainDetails", {})
+        whoisguard = result.get("Whoisguard", {})
+        dns_details = result.get("DnsDetails", {})
+
+        flat = {
+            "@ID": result.get("@ID"),
+            "@DomainName": result.get("@DomainName"),
+            "@OwnerName": result.get("@OwnerName"),
+            "@IsOwner": result.get("@IsOwner"),
+            "@IsPremium": result.get("@IsPremium", "false"),
+            "@Status": result.get("@Status"),
+            "created": domain_details.get("CreatedDate"),
+            "expires": domain_details.get("ExpiredDate"),
+            "whoisguard_enabled": whoisguard.get("@Enabled", "false").lower() == "true"
+            if isinstance(whoisguard, dict)
+            else False,
+            "dns_provider": dns_details.get("@ProviderType")
+            if isinstance(dns_details, dict)
+            else None,
+        }
+
+        return DomainInfo.model_validate(flat)
 
     def register(
         self,

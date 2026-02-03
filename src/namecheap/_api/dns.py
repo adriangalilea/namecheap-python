@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import tldextract
 
-from namecheap.models import DNSRecord, Nameservers
+from namecheap.models import DNSRecord, EmailForward, Nameservers
 
 from .base import BaseAPI
 
@@ -494,3 +494,37 @@ class DnsAPI(BaseAPI):
         nameservers = [ns_data] if isinstance(ns_data, str) else ns_data
 
         return Nameservers(is_default=is_default, nameservers=nameservers)
+
+    def get_email_forwarding(self, domain: str) -> list[EmailForward]:
+        """
+        Get email forwarding rules for a domain.
+
+        Args:
+            domain: Domain name
+
+        Returns:
+            List of EmailForward rules
+
+        Examples:
+            >>> rules = nc.dns.get_email_forwarding("example.com")
+            >>> for r in rules:
+            ...     print(f"{r.mailbox} -> {r.forward_to}")
+        """
+        result: Any = self._request(
+            "namecheap.domains.dns.getEmailForwarding",
+            {"DomainName": domain},
+            path="DomainDNSGetEmailForwardingResult",
+        )
+
+        if not result:
+            return []
+
+        forwards = result.get("Forward", [])
+        if isinstance(forwards, dict):
+            forwards = [forwards]
+        assert isinstance(forwards, list), f"Unexpected Forward type: {type(forwards)}"
+
+        return [
+            EmailForward(mailbox=f.get("@mailbox", ""), forward_to=f.get("#text", ""))
+            for f in forwards
+        ]

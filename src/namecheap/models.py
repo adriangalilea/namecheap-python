@@ -251,6 +251,66 @@ class Domain(XMLModel):
         raise ValueError(f"Cannot parse datetime from {v}")
 
 
+class AccountBalance(BaseModel):
+    """Account balance information."""
+
+    currency: str = Field(alias="@Currency")
+    available_balance: Decimal = Field(alias="@AvailableBalance")
+    account_balance: Decimal = Field(alias="@AccountBalance")
+    earned_amount: Decimal = Field(alias="@EarnedAmount")
+    withdrawable_amount: Decimal = Field(alias="@WithdrawableAmount")
+    funds_required_for_auto_renew: Decimal = Field(alias="@FundsRequiredForAutoRenew")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator(
+        "available_balance",
+        "account_balance",
+        "earned_amount",
+        "withdrawable_amount",
+        "funds_required_for_auto_renew",
+        mode="before",
+    )
+    @classmethod
+    def parse_decimal(cls, v: Any) -> Decimal:
+        return Decimal(str(v)) if v is not None else Decimal("0")
+
+
+class DomainInfo(BaseModel):
+    """Detailed domain information from getInfo."""
+
+    id: int = Field(alias="@ID")
+    domain: str = Field(alias="@DomainName")
+    owner: str = Field(alias="@OwnerName")
+    is_owner: bool = Field(alias="@IsOwner")
+    is_premium: bool = Field(alias="@IsPremium", default=False)
+    status: str = Field(alias="@Status")
+    created: str | None = Field(default=None)
+    expires: str | None = Field(default=None)
+    whoisguard_enabled: bool = Field(default=False)
+    dns_provider: str | None = Field(default=None)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("is_owner", "is_premium", mode="before")
+    @classmethod
+    def parse_bool(cls, v: Any) -> bool:
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str):
+            return v.lower() == "true"
+        return False
+
+
+class EmailForward(BaseModel):
+    """Email forwarding rule."""
+
+    mailbox: str = Field(alias="@mailbox")
+    forward_to: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class Nameservers(BaseModel):
     """Current nameserver configuration for a domain."""
 

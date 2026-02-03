@@ -367,57 +367,31 @@ def domain_info(config: Config, domain: str) -> None:
     nc = config.init_client()
 
     try:
-        domains = nc.domains.list()
-        domain_obj = next((d for d in domains if d.name == domain), None)
-
-        if not domain_obj:
-            console.print(f"[red]❌ Domain {domain} not found in your account[/red]")
-            sys.exit(1)
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Getting info for {domain}...", total=None)
+            info = nc.domains.get_info(domain)
 
         if config.output_format == "table":
             console.print(f"\n[bold cyan]Domain Information: {domain}[/bold cyan]\n")
-            console.print(
-                f"[bold]Status:[/bold] "
-                f"{'Active' if not domain_obj.is_expired else '[red]Expired[/red]'}"
-            )
-            console.print(
-                f"[bold]Created:[/bold] {domain_obj.created.strftime('%Y-%m-%d')}"
-            )
-            console.print(
-                f"[bold]Expires:[/bold] {domain_obj.expires.strftime('%Y-%m-%d')}"
-            )
-            console.print(
-                f"[bold]Auto-Renew:[/bold] {'✓ Enabled' if domain_obj.auto_renew else '✗ Disabled'}"
-            )
-            console.print(
-                f"[bold]Locked:[/bold] {'🔒 Yes' if domain_obj.is_locked else '🔓 No'}"
-            )
+            console.print(f"[bold]Status:[/bold] {info.status}")
+            console.print(f"[bold]Owner:[/bold] {info.owner}")
+            if info.created:
+                console.print(f"[bold]Created:[/bold] {info.created}")
+            if info.expires:
+                console.print(f"[bold]Expires:[/bold] {info.expires}")
+            console.print(f"[bold]Premium:[/bold] {'Yes' if info.is_premium else 'No'}")
             console.print(
                 f"[bold]WHOIS Guard:[/bold] "
-                f"{'✓ Enabled' if domain_obj.whois_guard else '✗ Disabled'}"
+                f"{'✓ Enabled' if info.whoisguard_enabled else '✗ Disabled'}"
             )
-
-            # Calculate days until expiration
-            days_left = (domain_obj.expires - datetime.now()).days
-            if days_left < 30:
-                console.print(
-                    f"\n⚠️  [yellow]Domain expires in {days_left} days![/yellow]"
-                )
-            elif days_left < 60:
-                console.print(f"\n📅 Domain expires in {days_left} days")
-
+            if info.dns_provider:
+                console.print(f"[bold]DNS Provider:[/bold] {info.dns_provider}")
         else:
-            data = {
-                "domain": domain_obj.name,
-                "status": "active" if not domain_obj.is_expired else "expired",
-                "created": domain_obj.created.isoformat(),
-                "expires": domain_obj.expires.isoformat(),
-                "auto_renew": domain_obj.auto_renew,
-                "locked": domain_obj.is_locked,
-                "whois_guard": domain_obj.whois_guard,
-                "days_until_expiration": (domain_obj.expires - datetime.now()).days,
-            }
-            output_formatter(data, config.output_format)
+            output_formatter(info.model_dump(), config.output_format)
 
     except NamecheapError as e:
         console.print(f"[red]❌ Error: {e}[/red]")
@@ -906,6 +880,45 @@ def dns_export(config: Config, domain: str, format: str, output) -> None:
         sys.exit(1)
 
 
+@dns_group.command("email-forwarding")
+@click.argument("domain")
+@pass_config
+def dns_email_forwarding(config: Config, domain: str) -> None:
+    """Show email forwarding rules for a domain."""
+    nc = config.init_client()
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Getting email forwarding for {domain}...", total=None)
+            rules = nc.dns.get_email_forwarding(domain)
+
+        if config.output_format == "table":
+            if not rules:
+                console.print(
+                    f"\n[yellow]No email forwarding rules for {domain}[/yellow]"
+                )
+                return
+
+            table = Table(title=f"Email Forwarding for {domain}")
+            table.add_column("Mailbox", style="cyan")
+            table.add_column("Forwards To", style="green")
+
+            for rule in rules:
+                table.add_row(f"{rule.mailbox}@{domain}", rule.forward_to)
+
+            console.print(table)
+        else:
+            output_formatter([r.model_dump() for r in rules], config.output_format)
+
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
 @cli.group("account")
 def account_group() -> None:
     """Account management commands."""
@@ -916,14 +929,37 @@ def account_group() -> None:
 @pass_config
 def account_balance(config: Config) -> None:
     """Check account balance."""
-    config.init_client()
+    nc = config.init_client()
 
     try:
-        # This would need to be implemented in the SDK
-        console.print(
-            "[yellow]Account balance check not yet implemented in SDK[/yellow]"
-        )
-        console.print("This feature requires the users.getBalances API method")
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task("Getting account balance...", total=None)
+            bal = nc.users.get_balances()
+
+        if config.output_format == "table":
+            table = Table(title="Account Balance")
+            table.add_column("Field", style="cyan")
+            table.add_column("Amount", style="green", justify="right")
+
+            table.add_row(
+                "Available Balance", f"{bal.available_balance} {bal.currency}"
+            )
+            table.add_row("Account Balance", f"{bal.account_balance} {bal.currency}")
+            table.add_row("Earned Amount", f"{bal.earned_amount} {bal.currency}")
+            table.add_row("Withdrawable", f"{bal.withdrawable_amount} {bal.currency}")
+            if bal.funds_required_for_auto_renew > 0:
+                table.add_row(
+                    "Auto-Renew Required",
+                    f"{bal.funds_required_for_auto_renew} {bal.currency}",
+                )
+
+            console.print(table)
+        else:
+            output_formatter(bal.model_dump(mode="json"), config.output_format)
 
     except NamecheapError as e:
         console.print(f"[red]❌ Error: {e}[/red]")

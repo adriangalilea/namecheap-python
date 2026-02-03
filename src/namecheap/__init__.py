@@ -12,15 +12,27 @@ from __future__ import annotations
 
 from .client import Namecheap
 from .errors import ConfigurationError, NamecheapError, ValidationError
-from .models import Contact, DNSRecord, Domain, DomainCheck, Nameservers
+from .models import (
+    AccountBalance,
+    Contact,
+    DNSRecord,
+    Domain,
+    DomainCheck,
+    DomainInfo,
+    EmailForward,
+    Nameservers,
+)
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __all__ = [
+    "AccountBalance",
     "ConfigurationError",
     "Contact",
     "DNSRecord",
     "Domain",
     "DomainCheck",
+    "DomainInfo",
+    "EmailForward",
     "Namecheap",
     "NamecheapError",
     "Nameservers",

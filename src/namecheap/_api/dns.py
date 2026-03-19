@@ -8,7 +8,7 @@ import tldextract
 
 from namecheap.models import DNSRecord, EmailForward, Nameservers
 
-from .base import BaseAPI
+from .base import BaseAPI, to_punycode
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -205,7 +205,7 @@ class DnsAPI(BaseAPI):
             ...     print(f"{record.type} {record.name} -> {record.value}")
         """
         # Parse domain to get SLD and TLD
-        ext = tldextract.extract(domain)
+        ext = tldextract.extract(to_punycode(domain))
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 
@@ -253,7 +253,7 @@ class DnsAPI(BaseAPI):
             records = records.build()
 
         # Parse domain
-        ext = tldextract.extract(domain)
+        ext = tldextract.extract(to_punycode(domain))
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 
@@ -407,7 +407,7 @@ class DnsAPI(BaseAPI):
         assert nameservers, "At least one nameserver is required"
         assert len(nameservers) <= 5, "Maximum of 5 nameservers allowed"
 
-        ext = tldextract.extract(domain)
+        ext = tldextract.extract(to_punycode(domain))
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 
@@ -438,7 +438,7 @@ class DnsAPI(BaseAPI):
         Examples:
             >>> nc.dns.set_default_nameservers("example.com")
         """
-        ext = tldextract.extract(domain)
+        ext = tldextract.extract(to_punycode(domain))
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 
@@ -470,7 +470,7 @@ class DnsAPI(BaseAPI):
             >>> ns.nameservers
             ['dns1.registrar-servers.com', 'dns2.registrar-servers.com']
         """
-        ext = tldextract.extract(domain)
+        ext = tldextract.extract(to_punycode(domain))
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 

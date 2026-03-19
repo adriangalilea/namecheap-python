@@ -10,12 +10,16 @@ A modern, friendly Python SDK for the Namecheap API with comprehensive CLI and T
 
 ## 🚀 Features
 
+> [!NOTE]
+> **New in v1.6.0:** IDN & emoji domain support — pass `🧊.to` or `café.com` directly, punycode handled automatically.
+
 - **Modern Python SDK** with full type hints and Pydantic models
 - **CLI Tool** for managing domains and DNS from the terminal
 - **TUI Application** for visual DNS record management
 - **Smart DNS Builder** with fluent interface for record management
 - **Auto-configuration** from environment variables
 - **Helpful error messages** with troubleshooting guidance
+- **IDN & emoji domain support** — pass `🧊.to` or `café.com` directly, punycode handled automatically
 - **Comprehensive logging** with beautiful colored output
 - **Sandbox support** for safe testing
 
@@ -297,6 +301,18 @@ nc.dns.set("example.com",
 ```
 
 **Note on TTL:** The default TTL is **1799 seconds**, which displays as **"Automatic"** in the Namecheap web interface. This is an undocumented Namecheap API behavior. You can specify custom TTL values (60-86400 seconds) in any DNS method.
+
+### IDN & Emoji Domain Support
+
+```python
+# Emoji domains work everywhere
+ns = nc.dns.get_nameservers("🧊.to")
+info = nc.domains.get_info("🧊.to")
+nc.dns.set_custom_nameservers("🧊.to", ["ns1.cloudflare.com", "ns2.cloudflare.com"])
+
+# So do IDN domains
+nc.domains.check("café.com", "München.de")
+```
 
 ### Nameserver Management
 

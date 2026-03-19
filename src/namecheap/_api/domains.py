@@ -18,7 +18,7 @@ from namecheap.models import (
     Tld,
 )
 
-from .base import BaseAPI
+from .base import BaseAPI, to_punycode
 
 
 class DomainsAPI(BaseAPI):
@@ -48,7 +48,7 @@ class DomainsAPI(BaseAPI):
             return []
 
         # API accepts comma-separated list
-        domain_list = ",".join(domains)
+        domain_list = ",".join(to_punycode(d) for d in domains)
 
         results = self._request(
             "namecheap.domains.check",
@@ -133,7 +133,7 @@ class DomainsAPI(BaseAPI):
         """
         result: Any = self._request(
             "namecheap.domains.getInfo",
-            {"DomainName": domain},
+            {"DomainName": to_punycode(domain)},
             path="DomainGetInfoResult",
         )
 
@@ -179,7 +179,7 @@ class DomainsAPI(BaseAPI):
         """
         result: Any = self._request(
             "namecheap.domains.getContacts",
-            {"DomainName": domain},
+            {"DomainName": to_punycode(domain)},
             path="DomainContactsResult",
         )
 
@@ -279,7 +279,7 @@ class DomainsAPI(BaseAPI):
             ... )
         """
         params = {
-            "DomainName": domain,
+            "DomainName": to_punycode(domain),
             "Years": years,
             "AddFreeWhoisguard": "yes" if whois_protection else "no",
             "WGEnabled": "yes" if whois_protection else "no",
@@ -354,12 +354,12 @@ class DomainsAPI(BaseAPI):
             ... )
         """
         # Extract TLD and SLD
-        parts = domain.split(".")
-        if len(parts) < 2:
+        ext = tldextract.extract(to_punycode(domain))
+        if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 
-        sld = parts[0]
-        tld = ".".join(parts[1:])
+        sld = ext.domain
+        tld = ext.suffix
 
         params = {"SLD": sld, "TLD": tld}
 
@@ -428,7 +428,7 @@ class DomainsAPI(BaseAPI):
         # Group domains by TLD
         tld_groups: dict[str, builtins.list[str]] = {}
         for domain in domains:
-            tld = tldextract.extract(domain).suffix
+            tld = tldextract.extract(to_punycode(domain)).suffix
             if tld not in tld_groups:
                 tld_groups[tld] = []
             tld_groups[tld].append(domain)

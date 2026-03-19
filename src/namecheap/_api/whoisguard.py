@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from namecheap.models import WhoisguardEntry
 
-from .base import BaseAPI
+from .base import BaseAPI, to_punycode
 
 
 class WhoisguardAPI(BaseAPI):
@@ -63,6 +63,7 @@ class WhoisguardAPI(BaseAPI):
 
     def _resolve_id(self, domain: str) -> int:
         """Resolve a domain name to its WhoisGuard ID."""
+        domain = to_punycode(domain)
         entries = self.get_list(list_type="ALLOTED")
         for entry in entries:
             if entry.domain.lower() == domain.lower():

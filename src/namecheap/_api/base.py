@@ -16,6 +16,26 @@ if TYPE_CHECKING:
 T = TypeVar("T", bound=BaseModel)
 
 
+def to_punycode(domain: str) -> str:
+    """Convert IDN/emoji domain to punycode (ASCII-compatible encoding).
+
+    Examples: '🧊.to' → 'xn--3u9h.to', 'café.com' → 'xn--caf-dma.com'
+    ASCII domains pass through unchanged.
+    """
+    try:
+        return domain.encode("idna").decode("ascii")
+    except (UnicodeError, UnicodeDecodeError):
+        # Multi-label domains: encode each label separately
+        parts = domain.split(".")
+        encoded = []
+        for part in parts:
+            try:
+                encoded.append(part.encode("idna").decode("ascii"))
+            except (UnicodeError, UnicodeDecodeError):
+                encoded.append(part)
+        return ".".join(encoded)
+
+
 def normalize_xml_response(data: dict[str, Any]) -> dict[str, Any]:
     """
     Normalize Namecheap's wildly inconsistent XML responses.

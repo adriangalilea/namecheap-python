@@ -19,6 +19,24 @@ uv run ruff format       # format
 pre-commit run --all-files  # run all hooks
 ```
 
+## Verifying changes
+
+No test suite. Boundary checks live next to the code they exercise as `*_check.py` files — bare scripts that `assert` and exit non-zero on failure. They are excluded from the published wheel.
+
+```bash
+# Run a single check after editing its sibling module:
+uv run python -m namecheap.models_check
+uv run python -m namecheap_cli.config_resolution_check
+
+# Run all checks (bash):
+for f in $(find src -name '*_check.py'); do
+    mod=${f#src/}; mod=${mod%.py}; mod=${mod//\//.}
+    uv run python -m "$mod" || exit 1
+done
+```
+
+When adding code to `foo.py`, add or extend `foo_check.py` next to it. Cross-cutting checks (CLI + SDK + subprocess env) live next to the highest-level module they verify.
+
 ## Building
 
 ```bash
@@ -103,6 +121,7 @@ Best reference: `dns.py:get_nameservers()` for SDK, `__main__.py:dns_nameservers
 
 - [ ] `uv run ruff check` passes
 - [ ] `uv run ruff format --check` passes
+- [ ] All `*_check.py` scripts pass
 - [ ] Examples work correctly
 - [ ] Documentation updated if needed
 

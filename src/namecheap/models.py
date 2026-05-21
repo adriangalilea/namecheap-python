@@ -466,6 +466,13 @@ class Config(BaseModel):
         validate_default=True,
     )
 
+    @field_validator("api_key", "username")
+    @classmethod
+    def validate_required(cls, v: str) -> str:
+        if not v:
+            raise ValueError("must not be empty")
+        return v
+
     @field_validator("log_level")
     @classmethod
     def validate_log_level(cls, v: str) -> str:

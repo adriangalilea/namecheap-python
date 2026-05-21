@@ -16,7 +16,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from namecheap import Namecheap, NamecheapError
+from namecheap import ConfigurationError, Namecheap, NamecheapError
 from namecheap.models import DNSRecord
 
 from .completion import get_completion_script
@@ -68,60 +68,47 @@ class Config:
             return yaml.safe_load(f) or {}
 
     def init_client(self) -> Namecheap:
-        """Initialize Namecheap client."""
+        """Initialize Namecheap client.
+
+        Resolution order: config file profile → NAMECHEAP_* env vars (incl. .env).
+        Sandbox CLI flag overrides both.
+        """
         if self.client:
             return self.client
 
-        # Check if config file exists
-        if not CONFIG_FILE.exists():
-            console.print("[red]❌ Configuration not found![/red]")
-            console.print(
-                "\nPlease run [bold cyan]namecheap-cli config init[/bold cyan] to set up your configuration."
-            )
-            console.print(
-                f"\nThis will create a config file at: [dim]{CONFIG_FILE}[/dim]"
-            )
-            sys.exit(1)
+        profile_config: dict = {}
+        if CONFIG_FILE.exists():
+            config = self.load_config()
+            profile_config = config.get("profiles", {}).get(self.profile, {})
+            if not profile_config:
+                console.print(
+                    f"[red]❌ Profile '{self.profile}' not found in configuration![/red]"
+                )
+                console.print(
+                    f"\nAvailable profiles: {', '.join(config.get('profiles', {}).keys()) or 'none'}"
+                )
+                console.print(
+                    "\nRun [bold cyan]namecheap-cli config init[/bold cyan] to create a new profile."
+                )
+                sys.exit(1)
 
-        config = self.load_config()
-        profile_config = config.get("profiles", {}).get(self.profile, {})
-
-        # Check if profile exists
-        if not profile_config:
-            console.print(
-                f"[red]❌ Profile '{self.profile}' not found in configuration![/red]"
-            )
-            console.print(
-                f"\nAvailable profiles: {', '.join(config.get('profiles', {}).keys()) or 'none'}"
-            )
-            console.print(
-                "\nRun [bold cyan]namecheap-cli config init[/bold cyan] to create a new profile."
-            )
-            sys.exit(1)
-
-        # Override sandbox if specified
         if self.sandbox is not None:
             profile_config["sandbox"] = self.sandbox
 
         try:
             self.client = Namecheap(**profile_config)
             return self.client
-        except Exception as e:
-            # Check for common configuration errors
-            error_msg = str(e)
-            if (
-                "Parameter APIUser is missing" in error_msg
-                or "Parameter APIKey is missing" in error_msg
-            ):
-                console.print("[red]❌ Invalid or incomplete configuration![/red]")
+        except ConfigurationError as e:
+            console.print(f"[red]❌ {e}[/red]")
+            if not CONFIG_FILE.exists():
                 console.print(
-                    "\nYour configuration appears to be missing required fields."
-                )
-                console.print(
-                    "Please run [bold cyan]namecheap-cli config init[/bold cyan] to reconfigure."
+                    "\nSet [bold cyan]NAMECHEAP_API_KEY[/bold cyan] and [bold cyan]NAMECHEAP_USERNAME[/bold cyan] env vars,"
+                    " or run [bold cyan]namecheap-cli config init[/bold cyan] to create a config file."
                 )
             else:
-                console.print(f"[red]❌ Error initializing client: {e}[/red]")
+                console.print(
+                    "\nRun [bold cyan]namecheap-cli config init[/bold cyan] to reconfigure."
+                )
             sys.exit(1)
 
 

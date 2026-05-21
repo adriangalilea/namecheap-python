@@ -237,7 +237,7 @@ uv tool install --python 3.12 'namecheap-python[all]'
 
 ### Environment Variables
 
-Create a `.env` file or set environment variables:
+Set environment variables in your shell:
 
 ```bash
 # Required
@@ -248,6 +248,21 @@ NAMECHEAP_USERNAME=your-username
 NAMECHEAP_API_USER=api-username  # defaults to USERNAME
 NAMECHEAP_CLIENT_IP=auto         # auto-detected if not set
 NAMECHEAP_SANDBOX=false          # use production API
+```
+
+### `.env` files
+
+The CLI auto-loads `.env` from the current working directory, so `cd ~/project && namecheap-cli ...` Just Works.
+
+The SDK does **not** read `.env` implicitly (libraries shouldn't reach into the filesystem on construction). If your code uses a `.env` file, load it explicitly:
+
+```python
+from dotenv import load_dotenv
+load_dotenv()
+nc = Namecheap()
+
+# or, equivalently:
+nc = Namecheap.from_env_file(".env")
 ```
 
 ### Python Configuration

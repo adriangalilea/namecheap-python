@@ -499,34 +499,28 @@ class Config(BaseModel):
 
     @classmethod
     def from_env(cls, **overrides: Any) -> Self:
-        """Load from environment with overrides."""
-        from dotenv import dotenv_values
+        """Load from os.environ with constructor overrides.
 
-        # Load .env file
-        env_values = dotenv_values()
+        The SDK does not read `.env` files implicitly. Applications that want
+        `.env` loading must call `load_dotenv()` themselves or use
+        `Namecheap.from_env_file(path)`.
+        """
 
-        # Merge environment variables (os.environ takes precedence over .env)
-        env_values.update(os.environ)
-
-        # Helper to get value with override
         def get_value(key: str, env_key: str, default: Any = None) -> Any:
             if key in overrides and overrides[key] is not None:
                 return overrides[key]
-            return env_values.get(env_key, default)
+            return os.environ.get(env_key, default)
 
-        # Get values
         api_key = get_value("api_key", "NAMECHEAP_API_KEY", "")
         username = get_value("username", "NAMECHEAP_USERNAME", "")
         api_user = get_value("api_user", "NAMECHEAP_API_USER", username or "")
         client_ip = get_value("client_ip", "NAMECHEAP_CLIENT_IP", "")
         log_level = get_value("log_level", "NAMECHEAP_LOG_LEVEL", "INFO")
 
-        # Parse sandbox with proper boolean handling
         if "sandbox" in overrides and overrides["sandbox"] is not None:
             sandbox = bool(overrides["sandbox"])
         else:
-            sandbox_str = env_values.get("NAMECHEAP_SANDBOX", "true")
-            sandbox_str = sandbox_str.lower() if sandbox_str else "true"
+            sandbox_str = os.environ.get("NAMECHEAP_SANDBOX", "true").lower()
             sandbox = sandbox_str in ("true", "1", "yes", "on")
 
         # Auto-detect IP if not provided

@@ -1516,6 +1516,12 @@ def completion(shell: str) -> None:
 
 def main() -> None:
     """Main entry point."""
+    # The SDK does not read .env files. The CLI is an application and does:
+    # load .env from CWD so `cd ~/project && namecheap-cli ...` Just Works.
+    from dotenv import load_dotenv
+
+    load_dotenv(".env")
+
     try:
         cli()
     except KeyboardInterrupt:

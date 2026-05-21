@@ -76,6 +76,53 @@ def check_kwargs_override_env() -> None:
         assert r.stdout.strip() == "kwargs-win", r.stdout
 
 
+def check_sdk_ignores_dotenv_in_cwd() -> None:
+    """SDK is a library: must not read .env from CWD implicitly."""
+    with tempfile.TemporaryDirectory() as home:
+        env_path = Path(home) / ".env"
+        env_path.write_text(
+            "NAMECHEAP_API_KEY=from-dotenv\n"
+            "NAMECHEAP_USERNAME=from-dotenv\n"
+            "NAMECHEAP_API_USER=from-dotenv\n"
+            "NAMECHEAP_CLIENT_IP=1.2.3.4\n"
+        )
+        r = run({"HOME": home}, cwd=home)
+        assert r.returncode != 0, (
+            f"SDK silently loaded .env from CWD — library should ignore it.\n"
+            f"stdout: {r.stdout}\nstderr: {r.stderr}"
+        )
+
+
+def check_cli_loads_dotenv_from_cwd() -> None:
+    """CLI is an application: must load .env from CWD for ergonomics."""
+    cli = shutil.which("namecheap-cli")
+    if not cli:
+        venv_cli = Path(sys.executable).parent / "namecheap-cli"
+        if venv_cli.exists():
+            cli = str(venv_cli)
+    assert cli, "namecheap-cli not on PATH"
+
+    with tempfile.TemporaryDirectory() as home:
+        env_path = Path(home) / ".env"
+        env_path.write_text(
+            "NAMECHEAP_API_KEY=fake\n"
+            "NAMECHEAP_USERNAME=fake\n"
+            "NAMECHEAP_API_USER=fake\n"
+            "NAMECHEAP_CLIENT_IP=1.2.3.4\n"
+        )
+        r = subprocess.run(
+            [cli, "domain", "list"],
+            env={"HOME": home, "PATH": os.environ["PATH"]},
+            cwd=home,
+            capture_output=True,
+            text=True,
+        )
+        combined = r.stdout + r.stderr
+        assert "Configuration not found" not in combined, (
+            f"CLI did not pick up .env from CWD:\n{combined}"
+        )
+
+
 def check_cli_falls_back_to_env() -> None:
     """Regression for #9: namecheap-cli must work with env vars alone."""
     cli = shutil.which("namecheap-cli")
@@ -113,5 +160,7 @@ if __name__ == "__main__":
     check_env_vars_work()
     check_missing_credentials_fail_locally()
     check_kwargs_override_env()
+    check_sdk_ignores_dotenv_in_cwd()
+    check_cli_loads_dotenv_from_cwd()
     check_cli_falls_back_to_env()
     print("ok: namecheap_cli config resolution")

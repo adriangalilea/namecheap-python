@@ -92,6 +92,14 @@ class ErrorDisplay:
                 console.print(
                     f"   4. Update your .env file: [cyan]NAMECHEAP_CLIENT_IP={actual_ip}[/cyan]"
                 )
+                console.print(
+                    "\n   [dim]Tired of re-whitelisting? Route API calls through any box"
+                    " with a static IP:[/dim]"
+                )
+                console.print(
+                    "   [dim]ALL_PROXY=socks5://127.0.0.1:1080 — see"
+                    " 'Static IP via proxy' in the README[/dim]"
+                )
             elif error.help:
                 console.print(f"\n[yellow]💡 {error.help}[/yellow]")
 

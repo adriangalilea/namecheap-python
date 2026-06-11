@@ -279,6 +279,27 @@ nc = Namecheap(
 )
 ```
 
+### Static IP via proxy
+
+Namecheap's API requires whitelisting your client IP — painful when your home IP rotates or your CI runners get random IPs. Instead of re-whitelisting forever, route API calls through any box you control with a static IP (a $5 VPS works).
+
+The SDK uses [httpx](https://www.python-httpx.org/), which honors the standard proxy environment variables out of the box. For SOCKS proxies, install the `socks` extra:
+
+```bash
+uv add 'namecheap-python[socks]'
+```
+
+Then tunnel through your static-IP box and point the proxy env var at it:
+
+```bash
+# SOCKS tunnel over SSH — no server setup needed
+ssh -f -N -D 1080 your-vps
+
+ALL_PROXY=socks5://127.0.0.1:1080 namecheap-cli domain list
+```
+
+Whitelist the VPS IP once in Namecheap (Profile → Tools → API Access) and set `NAMECHEAP_CLIENT_IP` to it. Now API calls work from anywhere — home, laptop on hotel WiFi, CI — with zero whitelist churn. HTTP proxies work too via `HTTPS_PROXY=http://...` (no extra needed).
+
 ## 🔧 Advanced SDK Usage
 
 ### DNS Builder Pattern

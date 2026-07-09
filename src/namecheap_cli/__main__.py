@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import datetime, timedelta
 from importlib import resources
@@ -1573,6 +1574,9 @@ def skill_install(target_dir: Path | None) -> None:
     body = _cli_md().replace(
         "(src/namecheap_cli/COMMANDS.md)", "(references/commands.md)"
     )
+    # Claude Code expands $<digit> and $ARGUMENTS placeholders in skill
+    # bodies at invocation time; escape literal dollars so prices survive.
+    body = re.sub(r"\$(?=\d|ARGUMENTS)", r"\\$", body)
     (target / "SKILL.md").write_text(SKILL_FRONTMATTER + body)
     (references / "commands.md").write_text(_reference())
 

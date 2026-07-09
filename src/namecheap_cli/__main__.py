@@ -57,10 +57,12 @@ class Config:
         self.verbose: bool = False
         self.profile: str = "default"
         self.sandbox: bool | None = None
+        self.config_path: Path | None = None
+        self.debug: bool = False
 
     def load_config(self, config_path: Path | None = None) -> dict:
         """Load configuration from file."""
-        path = config_path or CONFIG_FILE
+        path = config_path or self.config_path or CONFIG_FILE
         if not path.exists():
             return {}
 
@@ -76,8 +78,9 @@ class Config:
         if self.client:
             return self.client
 
+        config_file = self.config_path or CONFIG_FILE
         profile_config: dict = {}
-        if CONFIG_FILE.exists():
+        if config_file.exists():
             config = self.load_config()
             profile_config = config.get("profiles", {}).get(self.profile, {})
             if not profile_config:
@@ -100,7 +103,7 @@ class Config:
             return self.client
         except ConfigurationError as e:
             console.print(f"[red]❌ {e}[/red]")
-            if not CONFIG_FILE.exists():
+            if not config_file.exists():
                 console.print(
                     "\nSet [bold cyan]NAMECHEAP_API_KEY[/bold cyan] and [bold cyan]NAMECHEAP_USERNAME[/bold cyan] env vars,"
                     " or run [bold cyan]namecheap-cli config init[/bold cyan] to create a config file."
@@ -151,10 +154,19 @@ def output_formatter(data: Any, format: str, headers: list[str] | None = None) -
 @click.option("--no-color", is_flag=True, help="Disable colored output")
 @click.option("--quiet", "-q", is_flag=True, help="Minimal output")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
-@click.version_option()
+@click.option("--debug", is_flag=True, help="Show full traceback on errors")
+@click.version_option(package_name="namecheap-python")
 @pass_config
 def cli(
-    config: Config, config_path, profile, sandbox, output, no_color, quiet, verbose
+    config: Config,
+    config_path,
+    profile,
+    sandbox,
+    output,
+    no_color,
+    quiet,
+    verbose,
+    debug,
 ) -> None:
     """Namecheap CLI - Manage domains and DNS records."""
     config.output_format = output
@@ -163,6 +175,8 @@ def cli(
     config.verbose = verbose
     config.profile = profile
     config.sandbox = sandbox
+    config.config_path = Path(config_path) if config_path else None
+    config.debug = debug
 
     if no_color:
         console._color_system = None

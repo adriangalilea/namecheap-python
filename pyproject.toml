@@ -68,6 +68,9 @@ build-backend = "hatchling.build"
 packages = ["src/namecheap", "src/namecheap_cli", "src/namecheap_dns_tui"]
 exclude = ["**/*_check.py"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"CLI.md" = "namecheap_cli/CLI.md"
+
 [tool.ruff]
 target-version = "py312"
 src = ["src"]

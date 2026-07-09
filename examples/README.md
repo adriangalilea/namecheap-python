@@ -68,7 +68,7 @@ uv run namecheap-cli dns export example.com --format yaml
 
 **Output formats:** table (default), json, yaml, csv
 
-[Full CLI documentation →](../src/namecheap_cli/README.md)
+[Full CLI documentation →](../CLI.md)
 
 ### 3. 🎨 DNS Manager TUI
 

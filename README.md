@@ -11,7 +11,7 @@ A modern, friendly Python SDK for the Namecheap API with comprehensive CLI and T
 ## 🚀 Features
 
 > [!NOTE]
-> **New in v1.6.0:** IDN & emoji domain support — pass `🧊.to` or `café.com` directly, punycode handled automatically.
+> **New in v2.2.0:** the CLI ships its own [Claude Code skill](#-claude-code-integration) — `namecheap-cli skill install` and Claude handles your DNS.
 
 - **Modern Python SDK** with full type hints and Pydantic models
 - **CLI Tool** for managing domains and DNS from the terminal
@@ -229,7 +229,8 @@ uv tool install --python 3.12 'namecheap-python[all]'
 ## 📖 Documentation
 
 - **[Examples Overview](examples/README.md)** - Quick examples for all tools
-- **[CLI Documentation](src/namecheap_cli/README.md)** - Complete CLI reference
+- **[CLI Documentation](CLI.md)** - Usage guide, safety rules, and workflows (doubles as the Claude Code skill)
+- **[CLI Command Reference](src/namecheap_cli/COMMANDS.md)** - Every command and flag, generated from the CLI itself
 - **[TUI Documentation](src/namecheap_dns_tui/README.md)** - TUI features and usage
 - **[SDK Quickstart](examples/quickstart.py)** - Python code examples
 
@@ -555,9 +556,15 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 
 ## 🤖 Claude Code Integration
 
-The CLI works in [Claude Code](https://docs.anthropic.com/en/docs/claude-code) today — Claude can call `namecheap-cli` commands via Bash tool calls. A dedicated **Claude Code skill** is planned that will teach Claude the available commands, flag destructive operations for confirmation, and encode common workflows (GitHub Pages setup, Vercel nameservers, Cloudflare migration).
+The CLI ships with a [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill:
 
-The goal: tell Claude "set up mycoolproject.dev for Vercel" and it handles registration, DNS, and privacy without leaving the conversation.
+```bash
+namecheap-cli skill install
+```
+
+This writes the skill to `~/.claude/skills/namecheap-cli/`: [CLI.md](CLI.md) wrapped as `SKILL.md` (commands, safety rules for destructive operations, common workflows like GitHub Pages setup and Cloudflare migration) plus a command reference generated live from the installed CLI, so it always matches your exact version. Re-run after upgrading.
+
+Then tell Claude "set up mycoolproject.dev for GitHub Pages" and it handles DNS without leaving the conversation.
 
 ## 🛠️ Development
 

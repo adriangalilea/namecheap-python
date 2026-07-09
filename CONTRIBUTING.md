@@ -37,6 +37,17 @@ done
 
 When adding code to `foo.py`, add or extend `foo_check.py` next to it. Cross-cutting checks (CLI + SDK + subprocess env) live next to the highest-level module they verify.
 
+## Documentation
+
+- `CLI.md` (repo root) is the hand-written CLI guide and the single source for the Claude Code skill: `namecheap-cli skill install` wraps it verbatim in skill frontmatter.
+- `src/namecheap_cli/COMMANDS.md` is generated from the click command tree. Regenerate after changing any CLI command or flag:
+
+```bash
+uv run namecheap-cli skill commands > src/namecheap_cli/COMMANDS.md
+```
+
+`skill_check.py` fails if COMMANDS.md drifts from the code.
+
 ## Building
 
 ```bash
@@ -113,7 +124,8 @@ src/
 1. Add Pydantic model in `models.py`, export from `__init__.py`
 2. Add method in the appropriate `_api/*.py` file using `self._request()`
 3. Add CLI command in `__main__.py` following existing patterns
-4. Update the API Coverage table in `README.md`
+4. Regenerate `src/namecheap_cli/COMMANDS.md` (see Documentation above) and update `CLI.md` if workflows or safety rules changed
+5. Update the API Coverage table in `README.md`
 
 Best reference: `dns.py:get_nameservers()` for SDK, `__main__.py:dns_nameservers()` for CLI.
 

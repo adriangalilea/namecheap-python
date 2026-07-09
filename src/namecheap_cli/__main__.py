@@ -1623,7 +1623,15 @@ def main() -> None:
         console.print("\n[yellow]Interrupted by user[/yellow]")
         sys.exit(130)
     except Exception as e:
-        if "--debug" in sys.argv:
+        if "socksio" in str(e):
+            console.print(
+                "[red]❌ SOCKS proxy configured (ALL_PROXY) but the 'socksio' package is not installed.[/red]"
+            )
+            console.print(
+                "Install the socks extra: "
+                "[bold cyan]uv tool install --python 3.12 'namecheap-python\\[cli,socks]'[/bold cyan]"
+            )
+        elif "--debug" in sys.argv:
             console.print_exception()
         else:
             console.print(f"[red]❌ Unexpected error: {e}[/red]")

@@ -53,7 +53,7 @@ Verify access before anything else:
 └───────────────────┴────────┴────────────┴────────────┴────────┘
 ```
 
-The Namecheap API requires a whitelisted client IP. An IP-rejection error means your current public IP is not whitelisted (Namecheap → Profile → Tools → API Access), not that the key is wrong. If your IP rotates, route through a static-IP box: `ALL_PROXY=socks5://127.0.0.1:1080 namecheap-cli domain list` (see the [main README](README.md#static-ip-via-proxy)).
+The Namecheap API requires a whitelisted client IP. An IP-rejection error means your current public IP is not whitelisted (Namecheap → Profile → Tools → API Access), not that the key is wrong. If your IP rotates, route through a static-IP box: `ALL_PROXY=socks5://127.0.0.1:1080 namecheap-cli domain list`. SOCKS needs the socks extra (`namecheap-python[cli,socks]`); HTTP proxies via `HTTPS_PROXY` need nothing extra. See the [main README](README.md#static-ip-via-proxy).
 
 ## Command structure
 

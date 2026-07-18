@@ -99,6 +99,18 @@ def normalize_xml_response(data: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def navigate_path(result: Any, path: str) -> Any:
+    """Walk a dot-separated path into a parsed XML response.
+
+    A self-closing element (e.g. ``<DomainGetListResult />`` returned for an
+    account with no domains) is parsed as None, so navigating through it must
+    not raise; treat a None segment as an empty result.
+    """
+    for key in path.split("."):
+        result = (result or {}).get(key, {})
+    return result
+
+
 class BaseAPI:
     """Base class for API endpoints."""
 
@@ -175,8 +187,7 @@ class BaseAPI:
 
         # Navigate to specific path if provided
         if path:
-            for key in path.split("."):
-                result = result.get(key, {})
+            result = navigate_path(result, path)
 
         # Return empty list if no results
         if not result:

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import click
+import tldextract
 import yaml
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -19,7 +20,7 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from namecheap import ConfigurationError, Namecheap, NamecheapError
-from namecheap.models import DNSRecord
+from namecheap.models import Contact, DNSRecord
 
 from .completion import get_completion_script
 
@@ -308,24 +309,25 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
             table = Table(title="Domain Availability")
             table.add_column("Domain", style="cyan")
             table.add_column("Available", style="green")
-            table.add_column("Price (USD/year)", style="yellow")
+            table.add_column("1st Year", style="yellow")
+            table.add_column("Regular (USD/yr)", style="dim")
 
             for result in results:
                 available_text = "✅ Available" if result.available else "❌ Taken"
                 available_style = "green" if result.available else "red"
 
-                if result.available and result.price:
-                    price_text = f"${result.price:.2f}"
-                else:
-                    price_text = "-"
+                # total_price folds in ICANN/EAP fees when Namecheap reports them
+                price = result.total_price if result.available else None
+                price_text = f"${price:.2f}" if price else "-"
+                regular = result.regular_price if result.available else None
+                regular_text = f"${regular:.2f}" if regular else "-"
 
-                row = [
+                table.add_row(
                     result.domain,
                     f"[{available_style}]{available_text}[/{available_style}]",
                     price_text,
-                ]
-
-                table.add_row(*row)
+                    regular_text,
+                )
 
             console.print(table)
 
@@ -352,10 +354,225 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
                 }
                 if result.available and result.price:
                     item["price"] = float(result.price)
+                if result.available and result.regular_price:
+                    item["regular_price"] = float(result.regular_price)
+                if result.available and result.icann_fee:
+                    item["icann_fee"] = float(result.icann_fee)
                 data.append(item)
 
-            headers = ["domain", "available", "price"]
+            headers = ["domain", "available", "price", "regular_price", "icann_fee"]
             output_formatter(data, config.output_format, headers)
+
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+
+
+CONTACT_PROMPTS = [
+    ("first_name", "First name"),
+    ("last_name", "Last name"),
+    ("address1", "Street address"),
+    ("city", "City"),
+    ("state_province", "State/Province"),
+    ("postal_code", "Postal code"),
+    ("country", "Country code (e.g. US)"),
+    ("phone", "Phone (+NN.NNNNNNNNNN)"),
+    ("email", "Email"),
+]
+
+
+@domain_group.command("register")
+@click.argument("domain")
+@click.option("--years", type=int, default=1, help="Registration period in years")
+@click.option(
+    "--contacts-from",
+    "contacts_from",
+    metavar="DOMAIN",
+    help="Copy the registrant contact from a domain already in the account",
+)
+@click.option(
+    "--nameserver",
+    "-n",
+    "nameservers",
+    multiple=True,
+    help="Custom nameserver (repeat per NS; default: Namecheap BasicDNS)",
+)
+@click.option("--no-privacy", is_flag=True, help="Skip free WhoisGuard privacy")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@pass_config
+def domain_register(
+    config: Config,
+    domain: str,
+    years: int,
+    contacts_from: str | None,
+    nameservers: tuple[str, ...],
+    no_privacy: bool,
+    yes: bool,
+) -> None:
+    """Register a new domain. Charges the account balance.
+
+    Contact info comes from an existing domain (--contacts-from) or an
+    interactive prompt. Auto-renew cannot be set via the API; enable it in
+    the Namecheap dashboard after registration if wanted.
+
+    Example:
+        namecheap-cli domain register example.com --contacts-from other.com
+    """
+    nc = config.init_client()
+
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Checking {domain}...", total=None)
+            check = nc.domains.check(domain, include_pricing=True)[0]
+
+        if not check.available:
+            console.print(f"[red]❌ {domain} is taken[/red]")
+            sys.exit(1)
+
+        # Contact: copy from an existing domain, or ask
+        if contacts_from:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                progress.add_task(
+                    f"Copying contact from {contacts_from}...", total=None
+                )
+                contact = nc.domains.get_contacts(contacts_from).registrant
+        else:
+            if not sys.stdin.isatty():
+                console.print(
+                    "[red]❌ No terminal to prompt for contact info. "
+                    "Pass --contacts-from <existing-domain>.[/red]"
+                )
+                sys.exit(1)
+            console.print(
+                "[dim]Registrant contact (tip: --contacts-from copies it from "
+                "a domain you already own)[/dim]"
+            )
+            contact = Contact(
+                **{field: Prompt.ask(label) for field, label in CONTACT_PROMPTS}
+            )
+
+        # Money: exact multi-year total from the pricing API, renewal rate,
+        # balance. Registration pricing at duration N is the cumulative total.
+        tld = tldextract.extract(domain).suffix
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task("Getting pricing and balance...", total=None)
+            register_prices = (
+                nc.users.get_pricing("DOMAIN", action="REGISTER", product_name=tld)
+                .get("REGISTER", {})
+                .get(tld, [])
+            )
+            renew_prices = (
+                nc.users.get_pricing("DOMAIN", action="RENEW", product_name=tld)
+                .get("RENEW", {})
+                .get(tld, [])
+            )
+            bal = nc.users.get_balances()
+
+        first_year = check.price or next(
+            (p.price for p in register_prices if p.duration == 1), None
+        )
+        assert first_year is not None, f"No price found for {domain}"
+
+        total = next((p.price for p in register_prices if p.duration == years), None)
+        if check.premium or total is None:
+            total = first_year * years
+
+        icann_total = (check.icann_fee or 0) * years
+        total += icann_total
+        renew_price = next((p.price for p in renew_prices if p.duration == 1), None)
+
+        console.print(f"\n[bold cyan]Registering {domain}[/bold cyan]\n")
+        if check.premium:
+            console.print("[yellow]⚠️  Premium domain[/yellow]")
+        console.print(f"[bold]Years:[/bold] {years}")
+        console.print(
+            f"[bold]Price:[/bold] ${first_year:.2f} first year"
+            + (
+                f" [dim](regular ${check.regular_price:.2f}/yr)[/dim]"
+                if check.regular_price and check.regular_price != first_year
+                else ""
+            )
+        )
+        if renew_price is not None:
+            console.print(f"[bold]Renews at:[/bold] ${renew_price:.2f}/yr")
+        if icann_total:
+            console.print(f"[bold]ICANN fee:[/bold] ${icann_total:.2f}")
+        console.print(f"[bold]Total:[/bold] ${total:.2f}")
+        console.print(
+            f"[bold]Privacy:[/bold] "
+            f"{'✗ disabled' if no_privacy else '✓ free WhoisGuard'}"
+        )
+        console.print(
+            f"[bold]Contact:[/bold] {contact.first_name} {contact.last_name} "
+            f"<{contact.email}>"
+            + (f" [dim](from {contacts_from})[/dim]" if contacts_from else "")
+        )
+        if nameservers:
+            console.print(f"[bold]Nameservers:[/bold] {', '.join(nameservers)}")
+        console.print(
+            f"[bold]Balance:[/bold] {bal.available_balance} {bal.currency} available\n"
+        )
+
+        if total > bal.available_balance:
+            console.print(
+                f"[red]❌ Insufficient balance: need ${total:.2f}, "
+                f"have {bal.available_balance} {bal.currency}. "
+                "Top up at namecheap.com → Account → Top Up.[/red]"
+            )
+            sys.exit(1)
+
+        # Real money: only an explicit --yes skips this, never --quiet
+        if not yes and not Confirm.ask(
+            f"Register {domain} for ${total:.2f}?", default=False
+        ):
+            console.print("[yellow]Cancelled[/yellow]")
+            return
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(f"Registering {domain}...", total=None)
+            result = nc.domains.register(
+                domain,
+                years=years,
+                contact=contact,
+                nameservers=list(nameservers) or None,
+                whois_protection=not no_privacy,
+            )
+
+        registered = str(result.get("@Registered", "")).lower() == "true"
+        if not registered:
+            console.print(f"[red]❌ Registration failed: {result}[/red]")
+            sys.exit(1)
+
+        if config.output_format == "table":
+            console.print(f"[green]✅ Registered {domain}![/green]")
+            console.print(f"  Charged: ${result.get('@ChargedAmount')}")
+            console.print(f"  Order ID: {result.get('@OrderID')}")
+            console.print(f"  Transaction ID: {result.get('@TransactionID')}")
+            if str(result.get("@NonRealTimeDomain", "")).lower() == "true":
+                console.print(
+                    "[yellow]  Note: registration is queued at the registry "
+                    "and may take a while to complete.[/yellow]"
+                )
+        else:
+            output_formatter(
+                {k.lstrip("@"): v for k, v in result.items()}, config.output_format
+            )
 
     except NamecheapError as e:
         console.print(f"[red]❌ Error: {e}[/red]")
@@ -1512,7 +1729,7 @@ def skill_group() -> None:
 SKILL_FRONTMATTER = """\
 ---
 name: namecheap-cli
-description: Manage Namecheap domains with the namecheap-cli tool (DNS records, nameservers, email forwarding, WhoisGuard privacy, availability checks, pricing, account balance). This skill should be used when the user asks to add or change DNS records, point a domain at GitHub Pages, Vercel, or Cloudflare, check or price domains, manage domain privacy, or otherwise operate on their Namecheap account.
+description: Manage Namecheap domains with the namecheap-cli tool (domain registration, DNS records, nameservers, email forwarding, WhoisGuard privacy, availability checks, pricing, account balance). This skill should be used when the user asks to register or buy a domain, add or change DNS records, point a domain at GitHub Pages, Vercel, or Cloudflare, check or price domains, manage domain privacy, or otherwise operate on their Namecheap account.
 ---
 
 """

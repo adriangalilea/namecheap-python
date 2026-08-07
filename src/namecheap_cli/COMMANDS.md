@@ -277,6 +277,7 @@ Commands:
   contacts  Show contact information for a domain.
   info      Get detailed domain information.
   list      List all domains.
+  register  Register a new domain.
   tlds      List all supported TLDs.
 ```
 
@@ -326,6 +327,31 @@ Options:
   --sort [name|expires|created]
   --expiring-in INTEGER           Show domains expiring within N days
   --help                          Show this message and exit.
+```
+
+## `namecheap-cli domain register`
+
+```
+Usage: namecheap-cli domain register [OPTIONS] DOMAIN
+
+  Register a new domain. Charges the account balance.
+
+  Contact info comes from an existing domain (--contacts-from) or an interactive
+  prompt. Auto-renew cannot be set via the API; enable it in the Namecheap
+  dashboard after registration if wanted.
+
+  Example:     namecheap-cli domain register example.com --contacts-from
+  other.com
+
+Options:
+  --years INTEGER         Registration period in years
+  --contacts-from DOMAIN  Copy the registrant contact from a domain already in
+                          the account
+  -n, --nameserver TEXT   Custom nameserver (repeat per NS; default: Namecheap
+                          BasicDNS)
+  --no-privacy            Skip free WhoisGuard privacy
+  -y, --yes               Skip confirmation
+  --help                  Show this message and exit.
 ```
 
 ## `namecheap-cli domain tlds`

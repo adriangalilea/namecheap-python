@@ -52,7 +52,7 @@ def check_install() -> None:
             "COMMANDS.md links must be rewritten to references/commands.md"
         )
         assert "(references/commands.md)" in skill_md
-        assert "\\$34.98" in skill_md, (
+        assert "\\$34.48" in skill_md, (
             "literal $<digit> must be escaped or Claude Code's placeholder "
             "substitution mangles it at skill-invocation time"
         )

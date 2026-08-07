@@ -11,7 +11,9 @@ A modern, friendly Python SDK for the Namecheap API with comprehensive CLI and T
 ## 🚀 Features
 
 > [!NOTE]
-> **New in v2.2.0:** the CLI ships its own [Claude Code skill](#-claude-code-integration) — `namecheap-cli skill install` and Claude handles your DNS.
+> **New in v3.0.0:** register domains from the CLI — `namecheap-cli domain register` shows the real cost up front (promo vs. regular price, renewal rate, ICANN fee) and charges your account balance only after you confirm.
+>
+> **Breaking (SDK):** `domains.register()` now requires `contact` (the API always did; passing nothing simply failed) and drops the `auto_renew` parameter, which was accepted but never sent — Namecheap's API has no auto-renew switch. `Contact` objects now serialize correctly in `register()`/`set_contacts()`; both were broken for `Contact` instances before.
 
 - **Modern Python SDK** with full type hints and Pydantic models
 - **CLI Tool** for managing domains and DNS from the terminal
@@ -101,19 +103,40 @@ namecheap-cli config init
 Check domain availability and pricing:
 
 ```bash
-# Check domain availability
-❯ namecheap-cli domain check myawesome.com coolstartup.io
-                Domain Availability
-┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
-┃ Domain         ┃ Available    ┃ Price (USD/year) ┃
-┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
-│ myawesome.com  │ ❌ Taken     │ -                │
-│ coolstartup.io │ ✅ Available │ $34.98           │
-└────────────────┴──────────────┴──────────────────┘
+# Check domain availability — promo and regular price, so renewals never surprise you
+❯ namecheap-cli domain check myawesome.com coolstartup.live
+                     Domain Availability
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+┃ Domain           ┃ Available    ┃ 1st Year ┃ Regular (USD/yr) ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+│ myawesome.com    │ ❌ Taken     │ -        │ -                │
+│ coolstartup.live │ ✅ Available │ $2.98    │ $34.48           │
+└──────────────────┴──────────────┴──────────┴──────────────────┘
 
 💡 Suggestions for taken domains:
   • myawesome.com → myawesome.net, myawesome.io, getmyawesome.com
 ```
+
+Register a domain (charges your Namecheap account balance, after an explicit confirmation):
+
+```bash
+❯ namecheap-cli domain register coolstartup.live --contacts-from example.com
+
+Registering coolstartup.live
+
+Years: 1
+Price: $2.98 first year (regular $34.48/yr)
+Renews at: $39.48/yr
+Total: $2.98
+Privacy: ✓ free WhoisGuard
+Contact: John Doe <john@example.com> (from example.com)
+Balance: 68.98 USD available
+
+Register coolstartup.live for $2.98? [y/n] (n): y
+✅ Registered coolstartup.live!
+```
+
+`--contacts-from` copies the registrant contact from a domain you already own; without it the CLI prompts interactively. Auto-renew has no API switch — enable it in the Namecheap dashboard afterwards if you want it.
 
 Manage DNS records:
 
@@ -527,6 +550,10 @@ The Namecheap API only operates on domains **in your account**. There is no API 
 - Aftermarket pricing or availability
 
 `domains.check()` tells you if a domain is **unregistered**, not if it's for sale by its owner.
+
+### ICANN fee charged even when reported as zero
+
+`domains.check` sometimes returns `IcannFee=0` for a TLD that carries the fee, and registration then charges it anyway (~$0.20/yr). Expect the charged amount to exceed the quoted price by that much; the actual charge comes back in the `domains.create` response (`@ChargedAmount`).
 
 ### TTL "Automatic" = 1799 seconds
 

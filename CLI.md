@@ -73,20 +73,22 @@ Global options go **before** the resource: `namecheap-cli -o json dns list examp
 | `--no-color` | Disable colored output |
 | `--debug` | Full traceback on unexpected errors |
 
-Resources: `domain` (list, check, info, contacts, tlds), `dns` (list, add, delete, export, nameservers, set-nameservers, reset-nameservers, email-forwarding, set-email-forwarding), `privacy` (list, enable, disable, renew, change-email), `account` (balance, pricing), `config`, `completion`, `skill`. Every flag and argument: [COMMANDS.md](src/namecheap_cli/COMMANDS.md) or `namecheap-cli <resource> --help`.
+Resources: `domain` (list, check, register, info, contacts, tlds), `dns` (list, add, delete, export, nameservers, set-nameservers, reset-nameservers, email-forwarding, set-email-forwarding), `privacy` (list, enable, disable, renew, change-email), `account` (balance, pricing), `config`, `completion`, `skill`. Every flag and argument: [COMMANDS.md](src/namecheap_cli/COMMANDS.md) or `namecheap-cli <resource> --help`.
 
-The CLI operates only on domains in your Namecheap account. The sole exception is `domain check`, which reports whether arbitrary domains are unregistered (not whether an owner is selling them; there is no WHOIS or marketplace API):
+The CLI operates only on domains in your Namecheap account, plus two exceptions: `domain check` reports whether arbitrary domains are unregistered (not whether an owner is selling them; there is no WHOIS or marketplace API), and `domain register` buys one:
 
 ```bash
-❯ namecheap-cli domain check myawesome.com coolstartup.io
-                Domain Availability
-┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
-┃ Domain         ┃ Available    ┃ Price (USD/year) ┃
-┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
-│ myawesome.com  │ ❌ Taken     │ -                │
-│ coolstartup.io │ ✅ Available │ $34.98           │
-└────────────────┴──────────────┴──────────────────┘
+❯ namecheap-cli domain check myawesome.com coolstartup.live
+                     Domain Availability
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+┃ Domain           ┃ Available    ┃ 1st Year ┃ Regular (USD/yr) ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+│ myawesome.com    │ ❌ Taken     │ -        │ -                │
+│ coolstartup.live │ ✅ Available │ $2.98    │ $34.48           │
+└──────────────────┴──────────────┴──────────┴──────────────────┘
 ```
+
+"1st Year" is the price actually charged at registration (promo pricing plus any ICANN fee); "Regular" is what the TLD normally costs per year — a big gap means the renewal will not look like the first invoice.
 
 ## Safety rules
 
@@ -95,11 +97,13 @@ These matter equally for humans scripting the CLI and for agents driving it:
 - **Every DNS write replaces the whole zone.** `dns add` and `dns delete` are read-modify-write over all records (Namecheap has no per-record API). Snapshot before bulk or risky changes: `namecheap-cli dns export example.com --format json > example.com.dns.json`. Never run two DNS writes against the same domain concurrently.
 - **Confirmation prompts and `--yes`.** `dns delete`, `dns set-nameservers`, `dns reset-nameservers`, `dns set-email-forwarding`, `privacy disable`, and `privacy renew` prompt interactively. In non-interactive shells (scripts, agents) the prompt cannot be answered and the command dies: pass `--yes`/`-y`, but only once the operation is actually intended. Agents: never pass `--yes` without explicit user approval of that specific operation.
 - `dns set-email-forwarding` **replaces all existing rules**. Read current rules first (`dns email-forwarding example.com`) and re-include the keepers.
+- **`domain register` spends real money** from the account balance. It always shows first-year price, regular price, renewal rate, and balance, then asks; only `--yes` skips the confirmation (`--quiet` does not). Agents: never pass `--yes` unless the user has approved registering that specific domain at that price. Registrations are effectively non-refundable.
 - `privacy renew` charges real money from the account balance.
 - `dns delete --all` wipes the zone. Prefer targeted deletes by `--type`/`--name`/`--value`.
 
 ## Quirks
 
+- The amount actually charged at registration can exceed the shown total by the ICANN fee (~$0.20/yr): Namecheap sometimes reports `IcannFee=0` in the availability check and then charges it anyway. The success output shows the real charged amount.
 - TTL `1799` (the default) displays as "Automatic" in the Namecheap web UI; `1800` displays as "30 min". Undocumented Namecheap behavior.
 - MX records require `--priority`.
 - IDN and emoji domains work directly (`🧊.to`, `café.com`), punycode is handled for you.
@@ -109,6 +113,29 @@ These matter equally for humans scripting the CLI and for agents driving it:
 ## Workflows
 
 Verify DNS changes afterwards with `dig +short <name> <TYPE>` (allow a few minutes for propagation).
+
+### Register a domain
+
+```bash
+❯ namecheap-cli domain register videoclub.live --contacts-from self.fm
+
+Registering videoclub.live
+
+Years: 1
+Price: $2.98 first year (regular $34.48/yr)
+Renews at: $39.48/yr
+Total: $2.98
+Privacy: ✓ free WhoisGuard
+Contact: Adrian Galilea <adriangalilea@gmail.com> (from self.fm)
+Balance: 68.98 USD available
+
+Register videoclub.live for $2.98? [y/n] (n): y
+✅ Registered videoclub.live!
+  Charged: $3.1800
+  Order ID: 210521326
+```
+
+`--contacts-from` copies the registrant contact from a domain already in the account (the usual case); without it the CLI prompts for each contact field, and in a non-interactive shell it exits asking for the flag. `--years N` for multi-year, `-n ns1 -n ns2` for custom nameservers from birth, `--no-privacy` to skip WhoisGuard. Auto-renew has no API switch — enable it in the Namecheap dashboard afterwards if wanted.
 
 ### GitHub Pages
 

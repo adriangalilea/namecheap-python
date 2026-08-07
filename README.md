@@ -584,6 +584,7 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 | `namecheap.domains.transfer.*` | 🚧 Planned | Transfer domains into Namecheap (`create`, `getStatus`, `updateStatus`, `getList`). Only an allowlist of TLDs is API-transferable (`.com`, `.net`, `.org`, `.info`, `.me`, `.co`, ... per the docs); `Tld.is_api_transferable` from `get_tld_list()` already models this. Most transfers need an EPP/auth code |
 | `namecheap.domains.ns.*` | 🚧 Planned | Glue records (`create`, `delete`, `getInfo`, `update`) — only needed if you run your own nameservers and need to register them with the registry |
 | `namecheap.domains.*` | 🚧 Planned | `reactivate` — restore expired domains within the redemption grace period. Also missing: a `getRegistrarLock` read (SDK only writes via `lock`/`unlock`; `Domain.is_locked` from `list()` covers the common case) |
+| `domain renew` (CLI) | 🚧 Planned | SDK `domains.renew()` exists but the CLI doesn't expose it. Model on `domain register`: show renewal price (`account pricing <tld> --action RENEW`) and balance, confirm, only `--yes` skips. Auto-renew has no API switch (dashboard-only toggle; registrations start with it off), so this + `domain list --expiring-in N` in a cron is the API-driven alternative: renew on your own rules, e.g. only when balance covers it |
 
 ## 🤖 Claude Code Integration
 

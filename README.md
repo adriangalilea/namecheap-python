@@ -551,6 +551,10 @@ The Namecheap API only operates on domains **in your account**. There is no API 
 
 `domains.check()` tells you if a domain is **unregistered**, not if it's for sale by its owner.
 
+### No billing or invoice API
+
+Verified against production (2026-08): every plausible command (`users.getOrders`, `users.getInvoices`, `users.getTransactions`, `users.getBillingHistory`, `orders.getList`, `billing.getInvoices`) returns error 4 "Parameter Command is Invalid". The only money-adjacent endpoints are `users.getBalances`, `users.getPricing`, and the add-funds pair (`createaddfundsrequest`/`getAddFundsStatus`, which push money in, not read billing out). Invoice PDFs live in the dashboard (Profile → Billing & Payments → Invoices, matched by the Order ID that `domains.create` returns), and Namecheap emails a receipt per order, so a mailbox watcher is the automatable path.
+
 ### ICANN fee charged even when reported as zero
 
 `domains.check` sometimes returns `IcannFee=0` for a TLD that carries the fee, and registration then charges it anyway (~$0.20/yr). Expect the charged amount to exceed the quoted price by that much; the actual charge comes back in the `domains.create` response (`@ChargedAmount`).
@@ -575,11 +579,11 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 | `namecheap.domains.dns.*` | ✅ Done | `getHosts`, `setHosts` (builder pattern), `add`, `delete`, `export`, `getList`, `setCustom`, `setDefault`, `getEmailForwarding`, `setEmailForwarding` |
 | `namecheap.whoisguard.*` | ✅ Done | `getList`, `enable`, `disable`, `renew`, `changeEmailAddress` |
 | `namecheap.users.*` | ⚠️ Partial | `getBalances`, `getPricing`. Remaining methods are account management (`changePassword`, `update`, `create`, `login`, `resetPassword`) — only useful if building a reseller platform |
-| `namecheap.users.address.*` | 🚧 Planned | Saved address book for `domains.register()` — store contacts once, reuse by ID instead of passing full contact info every time |
+| `namecheap.users.address.*` | 🚧 Planned | Saved address book (`create`, `delete`, `getInfo`, `getList`, `setDefault`, `update`). Natural pairing: an `--address-id` alternative to `--contacts-from` on `namecheap-cli domain register`, and a `contact_id` shortcut on `domains.register()` |
 | `namecheap.ssl.*` | 🚧 Planned | Full SSL certificate lifecycle — purchase, activate with CSR, renew, revoke, reissue. Complex multi-step workflows with approval emails |
-| `namecheap.domains.transfer.*` | 🚧 Planned | Transfer domains into Namecheap programmatically — initiate, track status, retry |
-| `namecheap.domains.ns.*` | 🚧 Planned | Glue records — only needed if you run your own nameservers and need to register them with the registry |
-| `namecheap.domains.*` | 🚧 Planned | `reactivate` — restore expired domains within the redemption grace period |
+| `namecheap.domains.transfer.*` | 🚧 Planned | Transfer domains into Namecheap (`create`, `getStatus`, `updateStatus`, `getList`). Only an allowlist of TLDs is API-transferable (`.com`, `.net`, `.org`, `.info`, `.me`, `.co`, ... per the docs); `Tld.is_api_transferable` from `get_tld_list()` already models this. Most transfers need an EPP/auth code |
+| `namecheap.domains.ns.*` | 🚧 Planned | Glue records (`create`, `delete`, `getInfo`, `update`) — only needed if you run your own nameservers and need to register them with the registry |
+| `namecheap.domains.*` | 🚧 Planned | `reactivate` — restore expired domains within the redemption grace period. Also missing: a `getRegistrarLock` read (SDK only writes via `lock`/`unlock`; `Domain.is_locked` from `list()` covers the common case) |
 
 ## 🤖 Claude Code Integration
 

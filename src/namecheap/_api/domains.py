@@ -242,21 +242,21 @@ class DomainsAPI(BaseAPI):
         domain: str,
         *,
         years: int = 1,
-        contact: Contact | dict[str, str] | None = None,
+        contact: Contact | dict[str, str],
         nameservers: builtins.list[str] | None = None,
         whois_protection: bool = True,
-        auto_renew: bool = False,
     ) -> dict[str, Any]:
         """
-        Register a new domain.
+        Register a new domain. Charges the account balance.
 
         Args:
             domain: Domain name to register
             years: Number of years to register (default: 1)
-            contact: Contact information (uses account default if not provided)
+            contact: Registrant contact information (applied to all four
+                contact roles). A Contact model or a dict of API field
+                names (FirstName, LastName, ...)
             nameservers: List of nameservers (uses Namecheap defaults if not provided)
             whois_protection: Enable WhoisGuard protection (default: True)
-            auto_renew: Enable auto-renewal (default: False)
 
         Returns:
             Registration result with transaction details
@@ -285,15 +285,15 @@ class DomainsAPI(BaseAPI):
             "WGEnabled": "yes" if whois_protection else "no",
         }
 
-        # Add contact info if provided
-        if contact:
-            contact_data = (
-                contact.model_dump() if isinstance(contact, Contact) else contact
-            )
-            # Add contact fields for all types (Registrant, Tech, Admin, AuxBilling)
-            for contact_type in ["Registrant", "Tech", "Admin", "AuxBilling"]:
-                for field, value in contact_data.items():
-                    params[f"{contact_type}{field}"] = value
+        contact_data = (
+            contact.model_dump(by_alias=True, exclude_none=True)
+            if isinstance(contact, Contact)
+            else contact
+        )
+        # The API wants every contact role; mirror the registrant into all four
+        for contact_type in ["Registrant", "Tech", "Admin", "AuxBilling"]:
+            for field, value in contact_data.items():
+                params[f"{contact_type}{field}"] = value
 
         # Add nameservers if provided
         if nameservers:
@@ -363,8 +363,11 @@ class DomainsAPI(BaseAPI):
 
         params = {"SLD": sld, "TLD": tld}
 
-        # Add contact fields
-        contact_data = contact.model_dump() if isinstance(contact, Contact) else contact
+        contact_data = (
+            contact.model_dump(by_alias=True, exclude_none=True)
+            if isinstance(contact, Contact)
+            else contact
+        )
         for contact_type in ["Registrant", "Tech", "Admin", "AuxBilling"]:
             for field, value in contact_data.items():
                 params[f"{contact_type}{field}"] = value

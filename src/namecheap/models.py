@@ -7,7 +7,6 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 
-import xmltodict
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from namecheap.logging import logger
@@ -24,26 +23,6 @@ class XMLModel(BaseModel):
         str_strip_whitespace=True,
         extra="allow",  # Allow extra fields for debugging
     )
-
-    @classmethod
-    def from_xml(cls, xml: str, path: str | None = None) -> Self | list[Self]:
-        """Parse XML response into model."""
-        data = xmltodict.parse(xml)
-
-        # Navigate to the path if provided
-        if path:
-            for key in path.split("."):
-                data = data.get(key, {})
-
-        # Handle empty response
-        if not data:
-            return []
-
-        # Ensure list for consistency
-        items = data if isinstance(data, list) else [data]
-
-        # Parse each item
-        return [cls.model_validate(item) for item in items]
 
     @field_validator("*", mode="before")
     @classmethod

@@ -5,9 +5,10 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Literal
 
+from namecheap.idn import to_punycode
 from namecheap.models import WhoisguardEntry
 
-from .base import BaseAPI, to_punycode
+from .base import BaseAPI
 
 
 class WhoisguardAPI(BaseAPI):

@@ -7,8 +7,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
+from namecheap.idn import from_punycode
 from namecheap.logging import logger
 
 if TYPE_CHECKING:
@@ -132,6 +133,12 @@ class DomainCheck(XMLModel):
                 return None
         return v if isinstance(v, Decimal) else None
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def unicode_domain(self) -> str:
+        """`domain` in Unicode form ('xn--3u9h.to' → '🧊.to'), identical for ASCII."""
+        return from_punycode(self.domain)
+
     @property
     def price(self) -> Decimal | None:
         """Get the effective price for this domain."""
@@ -205,6 +212,12 @@ class Domain(XMLModel):
     auto_renew: bool = Field(alias="@AutoRenew", default=False)
     whois_guard: bool = Field(alias="@WhoisGuard", default=False)
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def unicode_name(self) -> str:
+        """`name` in Unicode form ('xn--3u9h.to' → '🧊.to'), identical for ASCII."""
+        return from_punycode(self.name)
+
     @field_validator("whois_guard", mode="before")
     @classmethod
     def parse_whois_guard(cls, v: Any) -> bool:
@@ -270,6 +283,12 @@ class DomainInfo(BaseModel):
     dns_provider: str | None = Field(default=None)
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def unicode_domain(self) -> str:
+        """`domain` in Unicode form ('xn--3u9h.to' → '🧊.to'), identical for ASCII."""
+        return from_punycode(self.domain)
 
     @field_validator("is_owner", "is_premium", mode="before")
     @classmethod

@@ -8,6 +8,7 @@ from typing import Any
 
 import tldextract
 
+from namecheap.idn import to_punycode
 from namecheap.logging import logger
 from namecheap.models import (
     Contact,
@@ -18,7 +19,7 @@ from namecheap.models import (
     Tld,
 )
 
-from .base import BaseAPI, to_punycode
+from .base import BaseAPI
 
 
 class DomainsAPI(BaseAPI):

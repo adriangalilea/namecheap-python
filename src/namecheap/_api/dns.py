@@ -6,9 +6,10 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import tldextract
 
+from namecheap.idn import to_punycode
 from namecheap.models import DNSRecord, EmailForward, Nameservers
 
-from .base import BaseAPI, to_punycode
+from .base import BaseAPI
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

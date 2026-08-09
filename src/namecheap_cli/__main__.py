@@ -229,7 +229,8 @@ def domain_list(
 
         # Sort
         if sort == "name":
-            domains.sort(key=lambda d: d.name)
+            # Sort by what the table shows, so display order matches the column
+            domains.sort(key=lambda d: d.unicode_name)
         elif sort == "expires":
             domains.sort(key=lambda d: d.expires)
         elif sort == "created":
@@ -248,7 +249,7 @@ def domain_list(
                 status_text = "Active" if not d.is_expired else "Expired"
                 status_style = "green" if not d.is_expired else "red"
                 table.add_row(
-                    d.name,
+                    d.unicode_name,
                     f"[{status_style}]{status_text}[/{status_style}]",
                     d.expires.strftime("%Y-%m-%d"),
                     "✓" if d.auto_renew else "✗",
@@ -260,6 +261,7 @@ def domain_list(
             data = [
                 {
                     "domain": d.name,
+                    "unicode": d.unicode_name,
                     "status": "active" if not d.is_expired else "expired",
                     "expires": d.expires.isoformat(),
                     "auto_renew": d.auto_renew,
@@ -270,7 +272,7 @@ def domain_list(
             output_formatter(
                 data,
                 config.output_format,
-                ["domain", "status", "expires", "auto_renew", "locked"],
+                ["domain", "unicode", "status", "expires", "auto_renew", "locked"],
             )
 
     except NamecheapError as e:
@@ -322,8 +324,14 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
                 regular = result.regular_price if result.available else None
                 regular_text = f"${regular:.2f}" if regular else "-"
 
+                # `check` takes arbitrary input, so show the registry form too:
+                # a homograph ('аpple.com' with a Cyrillic а) is only visible there
+                shown = result.unicode_domain
+                if shown != result.domain:
+                    shown = f"{shown} [dim]({result.domain})[/dim]"
+
                 table.add_row(
-                    result.domain,
+                    shown,
                     f"[{available_style}]{available_text}[/{available_style}]",
                     price_text,
                     regular_text,
@@ -332,24 +340,31 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
             console.print(table)
 
             # Show suggestions for taken domains
-            taken = [r for r in results if not r.available]
+            # Only ASCII names get suggestions: .com/.net/.io accept no emoji,
+            # so "get🧊.com" is not a domain anyone can register
+            taken = [
+                r for r in results if not r.available and r.unicode_domain.isascii()
+            ]
             if taken and not config.quiet:
                 console.print("\n💡 [yellow]Suggestions for taken domains:[/yellow]")
                 for r in taken[:3]:  # Show up to 3 suggestions
-                    base = r.domain.split(".")[0]
+                    base = r.unicode_domain.split(".")[0]
                     suggestions = [
                         f"{base}.net",
                         f"{base}.io",
                         f"get{base}.com",
                         f"{base}app.com",
                     ]
-                    console.print(f"  • {r.domain} → {', '.join(suggestions[:3])}")
+                    console.print(
+                        f"  • {r.unicode_domain} → {', '.join(suggestions[:3])}"
+                    )
 
         else:
             data = []
             for result in results:
                 item = {
                     "domain": result.domain,
+                    "unicode": result.unicode_domain,
                     "available": result.available,
                 }
                 if result.available and result.price:
@@ -360,7 +375,14 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
                     item["icann_fee"] = float(result.icann_fee)
                 data.append(item)
 
-            headers = ["domain", "available", "price", "regular_price", "icann_fee"]
+            headers = [
+                "domain",
+                "unicode",
+                "available",
+                "price",
+                "regular_price",
+                "icann_fee",
+            ]
             output_formatter(data, config.output_format, headers)
 
     except NamecheapError as e:
@@ -596,7 +618,10 @@ def domain_info(config: Config, domain: str) -> None:
             info = nc.domains.get_info(domain)
 
         if config.output_format == "table":
-            console.print(f"\n[bold cyan]Domain Information: {domain}[/bold cyan]\n")
+            shown = info.unicode_domain
+            if shown != info.domain:
+                shown = f"{shown} [dim]({info.domain})[/dim]"
+            console.print(f"\n[bold cyan]Domain Information: {shown}[/bold cyan]\n")
             console.print(f"[bold]Status:[/bold] {info.status}")
             console.print(f"[bold]Owner:[/bold] {info.owner}")
             if info.created:

@@ -11,9 +11,11 @@ A modern, friendly Python SDK for the Namecheap API with comprehensive CLI and T
 ## 🚀 Features
 
 > [!NOTE]
+> **New in v3.1.0:** IDN and emoji domains now print readably everywhere (`🧊.to`, not `xn--3u9h.to`), and `domains.list()` no longer crashes on accounts with zero domains ([#10](https://github.com/adriangalilea/namecheap-python/issues/10), reported by [@jparavisini](https://github.com/jparavisini), fixed by [@SAY-5](https://github.com/SAY-5)).
+>
 > **New in v3.0.0:** register domains from the CLI — `namecheap-cli domain register` shows the real cost up front (promo vs. regular price, renewal rate, ICANN fee) and charges your account balance only after you confirm.
 >
-> **Breaking (SDK):** `domains.register()` now requires `contact` (the API always did; passing nothing simply failed) and drops the `auto_renew` parameter, which was accepted but never sent — Namecheap's API has no auto-renew switch. `Contact` objects now serialize correctly in `register()`/`set_contacts()`; both were broken for `Contact` instances before.
+> **Breaking (SDK):** v3.1.0 removes the unused `XMLModel.from_xml()` classmethod — never documented, no callers since v1.0.0, and it skipped both response normalization and error detection. v3.0.0 made `contact` required in `domains.register()` and dropped `auto_renew`, which was accepted but never sent, since Namecheap's API has no auto-renew switch.
 
 - **Modern Python SDK** with full type hints and Pydantic models
 - **CLI Tool** for managing domains and DNS from the terminal
@@ -21,7 +23,7 @@ A modern, friendly Python SDK for the Namecheap API with comprehensive CLI and T
 - **Smart DNS Builder** with fluent interface for record management
 - **Auto-configuration** from environment variables
 - **Helpful error messages** with troubleshooting guidance
-- **IDN & emoji domain support** — pass `🧊.to` or `café.com` directly, punycode handled automatically
+- **IDN & emoji domain support** — pass `🧊.to` or `café.com` directly, punycode handled automatically, and results come back readable instead of as `xn--3u9h.to`
 - **Comprehensive logging** with beautiful colored output
 - **Sandbox support** for safe testing
 
@@ -374,6 +376,18 @@ nc.dns.set_custom_nameservers("🧊.to", ["ns1.cloudflare.com", "ns2.cloudflare.
 nc.domains.check("café.com", "München.de")
 ```
 
+Namecheap stores and returns punycode, so that stays the canonical identity on every model. The Unicode form is derived alongside it:
+
+```python
+d = nc.domains.list()[0]
+d.name          # 'xn--3u9h.to'  — what the registry holds, what you pass to dig
+d.unicode_name  # '🧊.to'        — what you show a human
+
+# Same pairing on the other models: DomainCheck.unicode_domain, DomainInfo.unicode_domain
+```
+
+The CLI renders the Unicode form in tables and carries both in `-o json` (`domain` and `unicode`). `domain check` additionally shows the punycode in parentheses, since that is the only place a homograph (`аpple.com` with a Cyrillic `а`) becomes visible.
+
 ### Nameserver Management
 
 ```python
@@ -615,3 +629,5 @@ Contributions are welcome! Please feel free to submit a Pull Request. See [CONTR
 - [@huntertur](https://github.com/huntertur) — Rich dependency fix
 - [@jeffmcadams](https://github.com/jeffmcadams) — Domain serialization round-trip
 - [@cosmin](https://github.com/cosmin) — Nameserver management
+- [@jparavisini](https://github.com/jparavisini) — Empty-account crash report
+- [@SAY-5](https://github.com/SAY-5) — Empty-account crash fix

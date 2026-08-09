@@ -106,7 +106,16 @@ These matter equally for humans scripting the CLI and for agents driving it:
 - The amount actually charged at registration can exceed the shown total by the ICANN fee (~$0.20/yr): Namecheap sometimes reports `IcannFee=0` in the availability check and then charges it anyway. The success output shows the real charged amount.
 - TTL `1799` (the default) displays as "Automatic" in the Namecheap web UI; `1800` displays as "30 min". Undocumented Namecheap behavior.
 - MX records require `--priority`.
-- IDN and emoji domains work directly (`🧊.to`, `café.com`), punycode is handled for you.
+- IDN and emoji domains work directly (`🧊.to`, `café.com`) and print back in readable form. `-o json` carries both: `domain` is the punycode the registry stores (pass this to `dig`), `unicode` is the display form. `domain check` shows `🧊.to (xn--3u9h.to)` because that is the one command taking arbitrary input, where a homograph (`аpple.com` with a Cyrillic `а`) is worth seeing.
+- **Per-domain lookups do not scale.** Namecheap allows ~20 requests/minute, and `domain list` returns no nameserver or DNS-provider field, so "which of my domains are on Namecheap DNS?" over 20 domains is a rate-limit error waiting to happen. Ask the DNS instead, it is free, parallel, and reports what actually resolves:
+
+  ```bash
+  for d in $(namecheap-cli -o json domain list | jq -r '.[].domain'); do
+    printf '%-20s %s\n' "$d" "$(dig +short NS "$d" | paste -sd, -)"
+  done
+  ```
+
+  `dns nameservers <domain>` is the API equivalent for a single domain.
 - DNS records are only served (and editable here) while the domain uses Namecheap BasicDNS. If `dns nameservers example.com` shows custom nameservers, the records live at that provider (e.g. Cloudflare), not here. Email forwarding likewise requires Namecheap DNS.
 - Nameserver changes can take up to 48 hours to propagate.
 
@@ -188,6 +197,37 @@ namecheap-cli dns set-nameservers example.com anna.ns.cloudflare.com curt.ns.clo
 # Back to Namecheap BasicDNS later, if ever:
 namecheap-cli dns reset-nameservers example.com
 ```
+
+### Advertise a domain as for sale (`_for-sale`)
+
+[RFC 10023](https://www.rfc-editor.org/rfc/rfc10023.html) reserves the `_for-sale` underscored node name ([IANA registry](https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#underscored-globally-scoped-dns-node-names)) so a live domain can signal it is for sale without a parking page or any visible change to the site. Brokers and availability services find it by lookup; browsers never see it. Summary at the [Website Specification](https://specification.website/spec/foundations/for-sale-dns/).
+
+```bash
+namecheap-cli dns add example.com TXT _for-sale "v=FORSALE1;furi=mailto:sales@example.com"
+```
+
+Rules that matter when writing the record:
+
+- `v=FORSALE1;` is mandatory, case-sensitive, and must start the string.
+- **One tag-value pair per record.** To publish both a price and a contact, add two records to the same name; do not concatenate them into one string.
+- Tags: `furi=` (contact URI, `https`/`mailto`/`tel`), `ftxt=` (human text), `fval=` (asking price as currency code plus amount, `fval=USD12500`), `fcod=` (private code between cooperating parties).
+- Max 255 octets, single character-string, no continuation.
+- TTL must be ≤ 3600. The CLI default of 1799 already complies; `--ttl` above 3600 violates the RFC.
+- **Delete the record once the domain is no longer for sale.** Absence is the only "not for sale" signal; there is no negative value.
+
+```bash
+# Price and contact together: two records, same name
+namecheap-cli dns add example.com TXT _for-sale "v=FORSALE1;fval=USD12500"
+namecheap-cli dns add example.com TXT _for-sale "v=FORSALE1;furi=https://example.com/for-sale"
+
+# Verify
+dig +short TXT _for-sale.example.com
+
+# Withdraw
+namecheap-cli dns delete example.com --type TXT --name _for-sale
+```
+
+Only works while the domain uses Namecheap BasicDNS. On Cloudflare or another provider, add the same TXT record there. Publishing `fval` puts your asking price in a machine-harvestable field and anchors every negotiation that follows, so `furi` alone is the usual choice.
 
 ### Email forwarding
 

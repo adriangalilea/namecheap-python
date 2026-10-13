@@ -76,7 +76,8 @@ class Config:
         """Initialize Namecheap client.
 
         Resolution order: config file profile → NAMECHEAP_* env vars (incl. .env).
-        Sandbox CLI flag overrides both.
+        --sandbox/--production overrides both; neither given leaves the choice to
+        them (and production when nothing says otherwise).
         """
         if self.client:
             return self.client
@@ -146,7 +147,14 @@ def output_formatter(data: Any, format: str, headers: list[str] | None = None) -
     "--config", "config_path", type=click.Path(exists=True), help="Config file path"
 )
 @click.option("--profile", default="default", help="Config profile to use")
-@click.option("--sandbox", is_flag=True, help="Use sandbox API")
+@click.option(
+    "--sandbox/--production",
+    default=None,
+    help=(
+        "Force the sandbox API (a separate account with its own key) or production."
+        " Default: the profile's `sandbox`, else NAMECHEAP_SANDBOX, else production."
+    ),
+)
 @click.option(
     "--output",
     "-o",
@@ -1707,7 +1715,11 @@ def config_init() -> None:
     api_key = Prompt.ask("API Key", password=True)
     username = Prompt.ask("Username")
     api_user = Prompt.ask("API User", default=username)
-    sandbox = Confirm.ask("Use sandbox API?", default=True)
+    sandbox = Confirm.ask(
+        "Use the sandbox API? (only for a sandbox.namecheap.com account, whose key"
+        " differs from your real one)",
+        default=False,
+    )
 
     # Create config
     config = {

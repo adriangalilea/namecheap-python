@@ -273,7 +273,7 @@ NAMECHEAP_USERNAME=your-username
 # Optional
 NAMECHEAP_API_USER=api-username  # defaults to USERNAME
 NAMECHEAP_CLIENT_IP=auto         # auto-detected if not set
-NAMECHEAP_SANDBOX=false          # use production API
+NAMECHEAP_SANDBOX=true           # sandbox API (separate account and key); unset = production
 ```
 
 ### `.env` files
@@ -301,7 +301,7 @@ nc = Namecheap(
     username="your-username", 
     api_user="api-username",    # Optional
     client_ip="1.2.3.4",       # Optional, auto-detected
-    sandbox=False              # Production mode
+    sandbox=True               # Optional: the sandbox API; production by default
 )
 ```
 

@@ -156,6 +156,45 @@ def check_cli_falls_back_to_env() -> None:
         )
 
 
+def check_cli_sandbox_follows_profile_unless_flagged() -> None:
+    """The profile's `sandbox` decides when no flag is given; a flag overrides it.
+
+    Fake credentials make Namecheap refuse the call, and every API error names
+    the API that answered, which is what is asserted. Needs the network.
+    """
+    cli = shutil.which("namecheap-cli")
+    if not cli:
+        venv_cli = Path(sys.executable).parent / "namecheap-cli"
+        if venv_cli.exists():
+            cli = str(venv_cli)
+    assert cli, "namecheap-cli not on PATH"
+
+    with tempfile.TemporaryDirectory() as home:
+        config = Path(home) / "config.yaml"
+        config.write_text(
+            "profiles:\n"
+            "  default:\n"
+            "    api_key: fake-key\n"
+            "    username: fake-user\n"
+            "    client_ip: 1.2.3.4\n"
+            "    sandbox: true\n"
+        )
+        env = {"HOME": home, "PATH": os.environ["PATH"], "COLUMNS": "400"}
+        for flags, expected in (
+            ([], "(sandbox API)"),
+            (["--production"], "(production API)"),
+        ):
+            r = subprocess.run(
+                [cli, "--config", str(config), *flags, "domain", "list"],
+                env=env,
+                cwd=home,
+                capture_output=True,
+                text=True,
+            )
+            combined = r.stdout + r.stderr
+            assert expected in combined, f"{flags or 'no flag'}: {combined}"
+
+
 if __name__ == "__main__":
     check_env_vars_work()
     check_missing_credentials_fail_locally()
@@ -163,4 +202,5 @@ if __name__ == "__main__":
     check_sdk_ignores_dotenv_in_cwd()
     check_cli_loads_dotenv_from_cwd()
     check_cli_falls_back_to_env()
+    check_cli_sandbox_follows_profile_unless_flagged()
     print("ok: namecheap_cli config resolution")

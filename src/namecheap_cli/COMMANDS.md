@@ -15,7 +15,10 @@ Usage: namecheap-cli [OPTIONS] COMMAND [ARGS]...
 Options:
   --config PATH                   Config file path
   --profile TEXT                  Config profile to use
-  --sandbox                       Use sandbox API
+  --sandbox / --production        Force the sandbox API (a separate account with
+                                  its own key) or production. Default: the
+                                  profile's `sandbox`, else NAMECHEAP_SANDBOX,
+                                  else production.
   -o, --output [table|json|yaml|csv]
                                   Output format
   --no-color                      Disable colored output

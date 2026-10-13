@@ -449,6 +449,36 @@ class ProductPrice(BaseModel):
         return int(v) if v else 1
 
 
+def api_url(*, sandbox: bool) -> str:
+    """The XML API endpoint: production, or the sandbox (a separate account)."""
+    if sandbox:
+        return "https://api.sandbox.namecheap.com/xml.response"
+    return "https://api.namecheap.com/xml.response"
+
+
+_TRUE = ("true", "1", "yes", "on")
+_FALSE = ("false", "0", "no", "off")
+
+
+def parse_sandbox(value: str | None) -> bool:
+    """NAMECHEAP_SANDBOX as a bool: unset or empty means production.
+
+    Anything that is not a recognised yes/no raises, so a typo can never send
+    calls to an API the caller did not mean.
+    """
+    if value is None or value.strip() == "":
+        return False
+    normalized = value.strip().lower()
+    if normalized in _TRUE:
+        return True
+    if normalized in _FALSE:
+        return False
+    raise ValueError(
+        f"NAMECHEAP_SANDBOX={value!r} is neither true nor false"
+        f" (accepted: {', '.join(_TRUE + _FALSE)})"
+    )
+
+
 class Config(BaseModel):
     """Client configuration with validation."""
 
@@ -456,7 +486,13 @@ class Config(BaseModel):
     username: str = Field(description="Namecheap username")
     api_user: str = Field(description="API username (defaults to username)")
     client_ip: str = Field(description="Whitelisted IP address")
-    sandbox: bool = Field(default=True, description="Use sandbox API")
+    sandbox: bool = Field(
+        default=False,
+        description=(
+            "Use the sandbox API (api.sandbox.namecheap.com). The sandbox is a separate"
+            " account with its own API key: a production key is rejected there."
+        ),
+    )
     log_level: str = Field(default="INFO", description="Logging level")
 
     model_config = ConfigDict(
@@ -516,10 +552,11 @@ class Config(BaseModel):
         log_level = get_value("log_level", "NAMECHEAP_LOG_LEVEL", "INFO")
 
         if "sandbox" in overrides and overrides["sandbox"] is not None:
-            sandbox = bool(overrides["sandbox"])
+            sandbox = overrides["sandbox"]
+            if not isinstance(sandbox, bool):
+                raise ValueError(f"sandbox must be True or False, got {sandbox!r}")
         else:
-            sandbox_str = os.environ.get("NAMECHEAP_SANDBOX", "true").lower()
-            sandbox = sandbox_str in ("true", "1", "yes", "on")
+            sandbox = parse_sandbox(os.environ.get("NAMECHEAP_SANDBOX"))
 
         # Auto-detect IP if not provided
         if not client_ip:

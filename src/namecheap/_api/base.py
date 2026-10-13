@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from namecheap.errors import ErrorCode, NamecheapError
 from namecheap.logging import ErrorDisplay, logger
+from namecheap.models import api_url
 
 if TYPE_CHECKING:
     from namecheap.client import Namecheap
@@ -134,12 +135,7 @@ class BaseAPI:
             **(params or {}),
         }
 
-        # Determine URL based on sandbox mode
-        url = (
-            "https://api.sandbox.namecheap.com/xml.response"
-            if self.config.sandbox
-            else "https://api.namecheap.com/xml.response"
-        )
+        url = api_url(sandbox=self.config.sandbox)
 
         # Make request
         logger.debug(f"Making API request to {command}")
@@ -158,7 +154,9 @@ class BaseAPI:
 
         # Check for API errors
         if api_response.get("@Status") == "ERROR":
-            error = NamecheapError.from_response(api_response)
+            error = NamecheapError.from_response(
+                api_response, sandbox=self.config.sandbox
+            )
             self._handle_error(error)
             raise error
 
@@ -184,10 +182,11 @@ class BaseAPI:
 
     def _handle_error(self, error: NamecheapError) -> None:
         """Handle errors with proper logging and display."""
-        # Log the error
-        logger.error(f"API Error [{error.code}]: {error.message}")
+        logger.error(f"API Error {error}")
 
         # For IP errors, show helpful information
         if error.code in (ErrorCode.INVALID_REQUEST_IP, ErrorCode.IP_NOT_WHITELISTED):
             ErrorDisplay.show(error, show_traceback=False)
             logger.debug("Full error details:", exc_info=True)
+        elif error.help:
+            logger.error(f"💡 {error.help}")

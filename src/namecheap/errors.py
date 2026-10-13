@@ -14,6 +14,9 @@ class ErrorCode(StrEnum):
     API_KEY_DISABLED = "2011151"
     IP_NOT_WHITELISTED = "2011168"
     INVALID_REQUEST_IP = "1011150"  # Different from IP_NOT_WHITELISTED
+    API_KEY_REJECTED = (
+        "1011102"  # "API Key is invalid or API access has not been enabled"
+    )
     USER_NOT_FOUND = "2011170"
 
     # Domain errors
@@ -41,11 +44,14 @@ class NamecheapError(Exception):
         code: str,
         message: str,
         details: dict[str, Any] | None = None,
+        *,
+        sandbox: bool,
     ) -> None:
-        """Initialize error with code, message and optional details."""
+        """Initialize error with code, message, optional details, and the API it came from."""
         self.code = code
         self.message = message
         self.details = details or {}
+        self.sandbox = sandbox
         self._ip_help: dict[str, str] | None = None
         self.help = self._get_help_message()
 
@@ -53,6 +59,19 @@ class NamecheapError(Exception):
 
     def _get_help_message(self) -> str | None:
         """Get helpful context for known errors."""
+        if self.code in _CREDENTIAL_CODES:
+            if self.sandbox:
+                return (
+                    "This call went to the SANDBOX API (api.sandbox.namecheap.com), a"
+                    " separate account with its own API key: a production key is"
+                    " rejected there. For your real account, unset NAMECHEAP_SANDBOX"
+                    " (or set it to false) / pass sandbox=False."
+                )
+            return (
+                "This call went to the production API (api.namecheap.com). Check the"
+                " key and that API access is enabled: Profile → Tools → API Access."
+                " A sandbox account's key only works with NAMECHEAP_SANDBOX=true."
+            )
         help_messages: dict[str, str] = {
             ErrorCode.IP_NOT_WHITELISTED.value: (
                 "Your IP is not whitelisted. Run nc.check_ip() for help, or:\n"
@@ -63,9 +82,6 @@ class NamecheapError(Exception):
             ErrorCode.INVALID_REQUEST_IP.value: (
                 "IP mismatch detected. Run nc.check_ip() to diagnose.\n"
                 "This usually means your IP has changed since configuration."
-            ),
-            ErrorCode.API_KEY_INVALID.value: (
-                "Check your API credentials in the Namecheap control panel"
             ),
             ErrorCode.API_KEY_DISABLED.value: (
                 "Your API key has been disabled. Contact Namecheap support."
@@ -90,7 +106,8 @@ class NamecheapError(Exception):
 
     def _format_message(self) -> str:
         """Format the error message with help if available."""
-        msg = f"[{self.code}] {self.message}"
+        api = "sandbox API" if self.sandbox else "production API"
+        msg = f"[{self.code}] {self.message} ({api})"
 
         # For IP-related errors, add IP info to the error object
         if self.code in (ErrorCode.INVALID_REQUEST_IP, ErrorCode.IP_NOT_WHITELISTED):
@@ -114,8 +131,8 @@ class NamecheapError(Exception):
         return msg
 
     @classmethod
-    def from_response(cls, data: dict[str, Any]) -> NamecheapError:
-        """Create error from API response data."""
+    def from_response(cls, data: dict[str, Any], *, sandbox: bool) -> NamecheapError:
+        """Create error from API response data, naming the API that answered."""
         # Extract errors from response
         errors = data.get("Errors", {}).get("Error", [])
         if not isinstance(errors, list):
@@ -127,6 +144,7 @@ class NamecheapError(Exception):
                 code="UNKNOWN",
                 message="An unknown error occurred",
                 details=data,
+                sandbox=sandbox,
             )
 
         # Use first error (Namecheap usually returns one)
@@ -135,7 +153,19 @@ class NamecheapError(Exception):
             code=error.get("@Number", "UNKNOWN"),
             message=error.get("#text", "Unknown error"),
             details=data,
+            sandbox=sandbox,
         )
+
+
+# Codes Namecheap returns when it does not accept the key: the one place where
+# which API answered (production or sandbox) is usually the whole explanation.
+_CREDENTIAL_CODES = frozenset(
+    {
+        ErrorCode.API_KEY_INVALID.value,
+        ErrorCode.API_KEY_REJECTED.value,
+        ErrorCode.USER_NOT_FOUND.value,
+    }
+)
 
 
 class ConfigurationError(Exception):

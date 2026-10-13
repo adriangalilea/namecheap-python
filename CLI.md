@@ -22,7 +22,7 @@ Credentials resolve in this order: config file profile, then `NAMECHEAP_*` envir
 namecheap-cli config init
 ```
 
-The wizard walks you through API key, username, and sandbox mode (note: the wizard defaults to sandbox, answer `n` for your real account). Config lives at `$XDG_CONFIG_HOME/namecheap/config.yaml` (`~/.config/namecheap/config.yaml` by default; `%APPDATA%\namecheap\config.yaml` on Windows):
+The wizard walks you through API key, username, and sandbox mode (answer `y` only for a sandbox.namecheap.com account: its key is not your real account's). Config lives at `$XDG_CONFIG_HOME/namecheap/config.yaml` (`~/.config/namecheap/config.yaml` by default; `%APPDATA%\namecheap\config.yaml` on Windows):
 
 ```yaml
 default_profile: default
@@ -35,7 +35,7 @@ profiles:
     sandbox: false
 ```
 
-Or use environment variables: `NAMECHEAP_API_KEY`, `NAMECHEAP_USERNAME`, `NAMECHEAP_API_USER` (defaults to username), `NAMECHEAP_CLIENT_IP` (auto-detected), `NAMECHEAP_SANDBOX`.
+Or use environment variables: `NAMECHEAP_API_KEY`, `NAMECHEAP_USERNAME`, `NAMECHEAP_API_USER` (defaults to username), `NAMECHEAP_CLIENT_IP` (auto-detected), `NAMECHEAP_SANDBOX` (`true` for the sandbox; unset means production; anything that is not a clear yes/no is an error). Every API error names the API that answered: `(production API)` or `(sandbox API)`.
 
 Verify access before anything else:
 
@@ -68,7 +68,7 @@ Global options go **before** the resource: `namecheap-cli -o json dns list examp
 | `-o, --output table\|json\|yaml\|csv` | Output format |
 | `--profile NAME` | Config profile |
 | `--config PATH` | Alternate config file |
-| `--sandbox` | Use the sandbox API |
+| `--sandbox` / `--production` | Force the sandbox API (a separate account with its own key) or production. Neither: the profile's `sandbox`, else `NAMECHEAP_SANDBOX`, else production |
 | `-q, --quiet` / `-v, --verbose` | Less / more output |
 | `--no-color` | Disable colored output |
 | `--debug` | Full traceback on unexpected errors |

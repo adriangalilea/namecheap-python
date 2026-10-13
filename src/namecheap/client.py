@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import httpx
 
 from .errors import ConfigurationError
-from .logging import set_log_level
-from .models import Config
+from .logging import logger, set_log_level
+from .models import Config, api_url
 
 if TYPE_CHECKING:
     from typing import Self
@@ -55,7 +55,8 @@ class Namecheap:
             username: Namecheap username (or set NAMECHEAP_USERNAME env var)
             api_user: API username, defaults to username (or set NAMECHEAP_API_USER)
             client_ip: Your IP address (or set NAMECHEAP_CLIENT_IP, or auto-detected)
-            sandbox: Use sandbox API for testing (default: from env or True)
+            sandbox: Use the sandbox API, a separate account with its own key
+                (default: NAMECHEAP_SANDBOX, else False = production)
             timeout: Request timeout in seconds (default: 30.0)
 
         Raises:
@@ -74,11 +75,18 @@ class Namecheap:
             set_log_level(self.config.log_level)
         except Exception as e:
             raise ConfigurationError(
-                "Failed to load configuration. Ensure you have set:\n"
+                f"Failed to load configuration: {e}\n"
+                "Ensure you have set:\n"
                 "- NAMECHEAP_API_KEY\n"
                 "- NAMECHEAP_USERNAME\n"
                 "Or pass them as parameters to the client."
             ) from e
+
+        if self.config.sandbox:
+            logger.info(
+                "Using the Namecheap SANDBOX API (api.sandbox.namecheap.com):"
+                " it needs a sandbox account's key, and nothing here touches production"
+            )
 
         self._client = httpx.Client(timeout=timeout)
 
@@ -211,11 +219,7 @@ class Namecheap:
 
     def _get_api_url(self) -> str:
         """Get the API URL based on sandbox setting."""
-        return (
-            "https://api.sandbox.namecheap.com/xml.response"
-            if self.config.sandbox
-            else "https://api.namecheap.com/xml.response"
-        )
+        return api_url(sandbox=self.config.sandbox)
 
     def __repr__(self) -> str:
         """String representation."""

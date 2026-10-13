@@ -10,6 +10,13 @@ A modern, friendly Python SDK for the Namecheap API with comprehensive CLI and T
 
 ## 🚀 Features
 
+> [!WARNING]
+> **v4.0.0 talks to production by default.** Until v3.x, the SDK used the sandbox API unless `NAMECHEAP_SANDBOX=false` or `sandbox=False` said otherwise, so a real account's key failed there with "API Key is invalid". Now `Namecheap()` calls `api.namecheap.com`, your real account, unless you ask for the sandbox with `NAMECHEAP_SANDBOX=true`, `sandbox=True` or `namecheap-cli --sandbox`. `NAMECHEAP_SANDBOX` must be a clear yes or no (`true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`); anything else is an error instead of a guess. Every API error now says which API answered.
+>
+> The CLI also stops overriding your config: a profile with `sandbox: true` used to reach production unless `--sandbox` was passed. The profile now decides, and `--sandbox`/`--production` override it.
+>
+> Also new: `nc.dns.clear_email_forwarding()` and `namecheap-cli dns clear-email-forwarding` remove every forwarding rule (`set_email_forwarding([])` raises). Both commands print the rules they replace to stderr first, so there is always something to restore from.
+
 > [!NOTE]
 > **New in v3.1.0:** IDN and emoji domains now print readably everywhere (`🧊.to`, not `xn--3u9h.to`), and `domains.list()` no longer crashes on accounts with zero domains ([#10](https://github.com/adriangalilea/namecheap-python/issues/10), reported by [@jparavisini](https://github.com/jparavisini), fixed by [@SAY-5](https://github.com/SAY-5)).
 >

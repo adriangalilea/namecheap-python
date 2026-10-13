@@ -1,4 +1,4 @@
-name: Python CI/CD
+name: release
 
 on:
   push:
@@ -6,113 +6,37 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions: {}
+
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v7
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v10.3.0
-      with:
-        enable-cache: true
-        
-    - name: Set up Python
-      run: uv python install 3.12
-    
-    - name: Install dependencies
-      run: uv sync --all-extras
-    
-    - name: Run ruff check
-      run: uv run ruff check
-    
-    - name: Run ruff format check
-      run: uv run ruff format --check
+  build:
+    uses: adriangalilea/ci/.github/workflows/python.yml@9d06975c2473ddb496dac98c38dad83d6d207947 # v1.0.0
+    permissions:
+      contents: read
 
   publish:
-    needs: lint
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    if: needs.build.outputs.release == 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          fetch-depth: 0
-      
-      - name: Set up Python
-        uses: actions/setup-python@v7
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
-          python-version: "3.12"
-      
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.0
-        
-      - name: Build package
-        run: uv build
-        
-      - name: Check if version exists on PyPI
-        id: check
-        run: |
-          WHEEL=$(ls dist/*.whl | head -1)
-          PACKAGE_NAME=$(echo $WHEEL | cut -d'/' -f2 | cut -d'-' -f1)
-          VERSION=$(echo $WHEEL | cut -d'/' -f2 | cut -d'-' -f2)
-          
-          if [ -z "$VERSION" ] || [ -z "$PACKAGE_NAME" ]; then
-            echo "Failed to extract package name or version from wheel"
-            exit 1
-          fi
-          
-          echo "package=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Checking PyPI for $PACKAGE_NAME version $VERSION"
-          
-          if curl -sf https://pypi.org/pypi/$PACKAGE_NAME/$VERSION/json > /dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Version $VERSION already exists on PyPI"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Version $VERSION not on PyPI, will publish"
-          fi
-        
-      - name: Publish to PyPI
-        if: steps.check.outputs.exists == 'false'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        
-      - name: Create git tag
-        if: steps.check.outputs.exists == 'false'
-        run: |
-          VERSION=${{ steps.check.outputs.version }}
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git tag -a "v$VERSION" -m "Release v$VERSION"
-          git push origin "v$VERSION"
-      
-      - name: Check for cliff.toml
-        if: steps.check.outputs.exists == 'false'
-        id: check-cliff
-        run: |
-          if [ -f .github/cliff.toml ]; then
-            echo "has_cliff=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_cliff=false" >> $GITHUB_OUTPUT
-          fi
-      
-      - name: Generate Changelog
-        if: steps.check.outputs.exists == 'false' && steps.check-cliff.outputs.has_cliff == 'true'
-        id: git-cliff
-        uses: orhun/git-cliff-action@v4
-        with:
-          config: .github/cliff.toml
-          args: --latest
-        env:
-          OUTPUT: CHANGELOG.md
-          GITHUB_REPO: ${{ github.repository }}
-      
-      - name: Create GitHub Release
-        if: steps.check.outputs.exists == 'false' && steps.check-cliff.outputs.has_cliff == 'true'
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: v${{ steps.check.outputs.version }}
-          body: ${{ steps.git-cliff.outputs.content }}
+          skip-existing: true
+
+  release:
+    needs: [build, publish]
+    uses: adriangalilea/ci/.github/workflows/release.yml@9d06975c2473ddb496dac98c38dad83d6d207947 # v1.0.0
+    with:
+      tag: ${{ needs.build.outputs.tag }}
+    permissions:
+      contents: write

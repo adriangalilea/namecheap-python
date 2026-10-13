@@ -56,7 +56,7 @@ uv build
 
 ## Release
 
-Automated via GitHub Actions on push to `main`. If the version in `pyproject.toml` doesn't exist on PyPI, CI publishes automatically, creates a git tag, and generates a GitHub release with changelog via [git-cliff](https://git-cliff.org/).
+Automated via GitHub Actions on push to `main`, using the shared workflows in [adriangalilea/ci](https://github.com/adriangalilea/ci). If the version in `pyproject.toml` has no GitHub release yet, CI publishes it to PyPI, then creates the tag and the release with a changelog from [git-cliff](https://git-cliff.org/).
 
 Bump version in both `pyproject.toml` and `src/namecheap/__init__.py`.
 

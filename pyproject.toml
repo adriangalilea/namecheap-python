@@ -53,6 +53,8 @@ all = [
     "textual>=0.47.0",
     "socksio>=1.0.0",
 ]
+
+[dependency-groups]
 dev = [
     "ruff>=0.7.0",
 ]

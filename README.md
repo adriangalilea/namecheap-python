@@ -450,6 +450,9 @@ nc.dns.set_email_forwarding("example.com", [
     EmailForward(mailbox="info", forward_to="me@gmail.com"),
     EmailForward(mailbox="support", forward_to="help@gmail.com"),
 ])
+
+# Remove every rule
+nc.dns.clear_email_forwarding("example.com")
 ```
 
 ### Domain Contacts

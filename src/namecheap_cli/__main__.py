@@ -1182,27 +1182,71 @@ def dns_set_email_forwarding(
 ) -> None:
     """Set email forwarding rules. Replaces all existing rules.
 
-    Rules are in mailbox:forward_to format.
+    Rules are in mailbox:forward_to format. The rules being replaced are
+    printed to stderr first. To remove them all: clear-email-forwarding.
 
     Example:
         namecheap-cli dns set-email-forwarding example.com info:me@gmail.com support:help@gmail.com
     """
-    nc = config.init_client()
-
     parsed = []
     for rule in rules:
-        assert ":" in rule, f"Invalid rule format '{rule}', expected mailbox:forward_to"
+        if ":" not in rule:
+            raise click.BadParameter(
+                f"'{rule}' is not mailbox:forward_to", param_hint="RULES"
+            )
         mailbox, forward_to = rule.split(":", 1)
         parsed.append({"mailbox": mailbox, "forward_to": forward_to})
 
+    _replace_email_forwarding(config, domain, parsed, yes)
+
+
+@dns_group.command("clear-email-forwarding")
+@click.argument("domain")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@pass_config
+def dns_clear_email_forwarding(config: Config, domain: str, yes: bool) -> None:
+    """Remove every email forwarding rule from a domain.
+
+    Example:
+        namecheap-cli dns clear-email-forwarding example.com
+    """
+    _replace_email_forwarding(config, domain, [], yes)
+
+
+def _replace_email_forwarding(
+    config: Config, domain: str, rules: list[dict[str, str]], yes: bool
+) -> None:
+    """Replace a domain's forwarding rules with `rules` (empty = remove all).
+
+    The rules being replaced are read first and always written to stderr, even
+    with --yes or --quiet: that line is the only record of what to restore.
+    """
+    nc = config.init_client()
+
     try:
+        previous = nc.dns.get_email_forwarding(domain)
+        click.echo(
+            f"{domain} forwarding before: "
+            + (
+                " ".join(f"{r.mailbox}:{r.forward_to}" for r in previous)
+                or "(no rules)"
+            ),
+            err=True,
+        )
+
         if not yes and not config.quiet:
-            console.print(f"\n[yellow]Setting email forwarding for {domain}:[/yellow]")
-            for p in parsed:
-                console.print(f"  • {p['mailbox']}@{domain} → {p['forward_to']}")
+            console.print(f"\n[yellow]Email forwarding for {domain}:[/yellow]")
+            for r in previous:
+                console.print(f"  [red]- {r.mailbox}@{domain} → {r.forward_to}[/red]")
+            for p in rules:
+                console.print(
+                    f"  [green]+ {p['mailbox']}@{domain} → {p['forward_to']}[/green]"
+                )
+            if not rules:
+                console.print("  [yellow](no rules afterwards)[/yellow]")
             console.print()
 
-            if not Confirm.ask("Continue?", default=True):
+            if not Confirm.ask("Continue?", default=not previous or bool(rules)):
                 console.print("[yellow]Cancelled[/yellow]")
                 return
 
@@ -1212,7 +1256,11 @@ def dns_set_email_forwarding(
             transient=True,
         ) as progress:
             progress.add_task(f"Setting email forwarding for {domain}...", total=None)
-            success = nc.dns.set_email_forwarding(domain, parsed)
+            success = (
+                nc.dns.set_email_forwarding(domain, rules)
+                if rules
+                else nc.dns.clear_email_forwarding(domain)
+            )
 
         if success:
             console.print("[green]✅ Email forwarding updated successfully![/green]")

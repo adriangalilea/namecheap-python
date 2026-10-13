@@ -549,7 +549,11 @@ class DnsAPI(BaseAPI):
             ...     EmailForward(mailbox="support", forward_to="help@gmail.com"),
             ... ])
         """
-        assert rules, "At least one forwarding rule is required"
+        if not rules:
+            raise ValueError(
+                "set_email_forwarding() needs at least one rule;"
+                " clear_email_forwarding() removes them all"
+            )
 
         params: dict[str, Any] = {"DomainName": domain}
         for i, rule in enumerate(rules, 1):
@@ -563,6 +567,30 @@ class DnsAPI(BaseAPI):
         result: Any = self._request(
             "namecheap.domains.dns.setEmailForwarding",
             params,
+            path="DomainDNSSetEmailForwardingResult",
+        )
+
+        return bool(result and result.get("@IsSuccess", "false").lower() == "true")
+
+    def clear_email_forwarding(self, domain: str) -> bool:
+        """
+        Remove every email forwarding rule from a domain.
+
+        Namecheap's setEmailForwarding with no MailBox/ForwardTo pairs empties the
+        list (verified against production, 2026-10).
+
+        Args:
+            domain: Domain name
+
+        Returns:
+            True if successful
+
+        Examples:
+            >>> nc.dns.clear_email_forwarding("example.com")
+        """
+        result: Any = self._request(
+            "namecheap.domains.dns.setEmailForwarding",
+            {"DomainName": domain},
             path="DomainDNSSetEmailForwardingResult",
         )
 

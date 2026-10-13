@@ -127,15 +127,16 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  add                   Add a DNS record.
-  delete                Delete DNS records.
-  email-forwarding      Show email forwarding rules for a domain.
-  export                Export DNS records.
-  list                  List DNS records for a domain.
-  nameservers           Show current nameserver configuration for a domain.
-  reset-nameservers     Reset domain to use Namecheap's default nameservers.
-  set-email-forwarding  Set email forwarding rules.
-  set-nameservers       Set custom nameservers for a domain.
+  add                     Add a DNS record.
+  clear-email-forwarding  Remove every email forwarding rule from a domain.
+  delete                  Delete DNS records.
+  email-forwarding        Show email forwarding rules for a domain.
+  export                  Export DNS records.
+  list                    List DNS records for a domain.
+  nameservers             Show current nameserver configuration for a domain.
+  reset-nameservers       Reset domain to use Namecheap's default nameservers.
+  set-email-forwarding    Set email forwarding rules.
+  set-nameservers         Set custom nameservers for a domain.
 ```
 
 ## `namecheap-cli dns add`
@@ -151,6 +152,20 @@ Options:
   --ttl INTEGER       TTL in seconds (60-86400, default: 1799 = Automatic)
   --priority INTEGER  Priority (required for MX records)
   --help              Show this message and exit.
+```
+
+## `namecheap-cli dns clear-email-forwarding`
+
+```
+Usage: namecheap-cli dns clear-email-forwarding [OPTIONS] DOMAIN
+
+  Remove every email forwarding rule from a domain.
+
+  Example:     namecheap-cli dns clear-email-forwarding example.com
+
+Options:
+  -y, --yes  Skip confirmation
+  --help     Show this message and exit.
 ```
 
 ## `namecheap-cli dns delete`
@@ -238,7 +253,8 @@ Usage: namecheap-cli dns set-email-forwarding [OPTIONS] DOMAIN RULES...
 
   Set email forwarding rules. Replaces all existing rules.
 
-  Rules are in mailbox:forward_to format.
+  Rules are in mailbox:forward_to format. The rules being replaced are printed
+  to stderr first. To remove them all: clear-email-forwarding.
 
   Example:     namecheap-cli dns set-email-forwarding example.com
   info:me@gmail.com support:help@gmail.com

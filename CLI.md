@@ -73,7 +73,7 @@ Global options go **before** the resource: `namecheap-cli -o json dns list examp
 | `--no-color` | Disable colored output |
 | `--debug` | Full traceback on unexpected errors |
 
-Resources: `domain` (list, check, register, info, contacts, tlds), `dns` (list, add, delete, export, nameservers, set-nameservers, reset-nameservers, email-forwarding, set-email-forwarding), `privacy` (list, enable, disable, renew, change-email), `account` (balance, pricing), `config`, `completion`, `skill`. Every flag and argument: [COMMANDS.md](src/namecheap_cli/COMMANDS.md) or `namecheap-cli <resource> --help`.
+Resources: `domain` (list, check, register, info, contacts, tlds), `dns` (list, add, delete, export, nameservers, set-nameservers, reset-nameservers, email-forwarding, set-email-forwarding, clear-email-forwarding), `privacy` (list, enable, disable, renew, change-email), `account` (balance, pricing), `config`, `completion`, `skill`. Every flag and argument: [COMMANDS.md](src/namecheap_cli/COMMANDS.md) or `namecheap-cli <resource> --help`.
 
 The CLI operates only on domains in your Namecheap account, plus two exceptions: `domain check` reports whether arbitrary domains are unregistered (not whether an owner is selling them; there is no WHOIS or marketplace API), and `domain register` buys one:
 
@@ -95,8 +95,8 @@ The CLI operates only on domains in your Namecheap account, plus two exceptions:
 These matter equally for humans scripting the CLI and for agents driving it:
 
 - **Every DNS write replaces the whole zone.** `dns add` and `dns delete` are read-modify-write over all records (Namecheap has no per-record API). Snapshot before bulk or risky changes: `namecheap-cli dns export example.com --format json > example.com.dns.json`. Never run two DNS writes against the same domain concurrently.
-- **Confirmation prompts and `--yes`.** `dns delete`, `dns set-nameservers`, `dns reset-nameservers`, `dns set-email-forwarding`, `privacy disable`, and `privacy renew` prompt interactively. In non-interactive shells (scripts, agents) the prompt cannot be answered and the command dies: pass `--yes`/`-y`, but only once the operation is actually intended. Agents: never pass `--yes` without explicit user approval of that specific operation.
-- `dns set-email-forwarding` **replaces all existing rules**. Read current rules first (`dns email-forwarding example.com`) and re-include the keepers.
+- **Confirmation prompts and `--yes`.** `dns delete`, `dns set-nameservers`, `dns reset-nameservers`, `dns set-email-forwarding`, `dns clear-email-forwarding`, `privacy disable`, and `privacy renew` prompt interactively. In non-interactive shells (scripts, agents) the prompt cannot be answered and the command dies: pass `--yes`/`-y`, but only once the operation is actually intended. Agents: never pass `--yes` without explicit user approval of that specific operation.
+- `dns set-email-forwarding` **replaces all existing rules**. Read current rules first (`dns email-forwarding example.com`) and re-include the keepers. It, and `dns clear-email-forwarding`, print the rules being replaced to stderr (`<domain> forwarding before: mailbox:target ...`) even with `--yes`: that line is what to restore from.
 - **`domain register` spends real money** from the account balance. It always shows first-year price, regular price, renewal rate, and balance, then asks; only `--yes` skips the confirmation (`--quiet` does not). Agents: never pass `--yes` unless the user has approved registering that specific domain at that price. Registrations are effectively non-refundable.
 - `privacy renew` charges real money from the account balance.
 - `dns delete --all` wipes the zone. Prefer targeted deletes by `--type`/`--name`/`--value`.
@@ -241,6 +241,10 @@ Only works while the domain uses Namecheap BasicDNS. On Cloudflare or another pr
 └──────────────────┴────────────────┘
 
 ❯ namecheap-cli dns set-email-forwarding example.com info:me@gmail.com support:help@gmail.com
+example.com forwarding before: info:me@gmail.com
+
+# Remove every rule (prints the ones it removes to stderr first)
+❯ namecheap-cli dns clear-email-forwarding example.com
 ```
 
 ### Account balance

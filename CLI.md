@@ -73,9 +73,9 @@ Global options go **before** the resource: `namecheap-cli -o json dns list examp
 | `--no-color` | Disable colored output |
 | `--debug` | Full traceback on unexpected errors |
 
-Resources: `domain` (list, check, register, info, contacts, tlds), `dns` (list, add, delete, export, nameservers, set-nameservers, reset-nameservers, email-forwarding, set-email-forwarding, clear-email-forwarding), `privacy` (list, enable, disable, renew, change-email), `account` (balance, pricing), `config`, `completion`, `skill`. Every flag and argument: [COMMANDS.md](src/namecheap_cli/COMMANDS.md) or `namecheap-cli <resource> --help`.
+Resources: `domain` (list, check, register, info, contacts, tlds), `dns` (list, add, delete, export, nameservers, set-nameservers, reset-nameservers, email-forwarding, set-email-forwarding, clear-email-forwarding), `for-sale` (show, set, clear), `privacy` (list, enable, disable, renew, change-email), `account` (balance, pricing), `config`, `completion`, `skill`. Every flag and argument: [COMMANDS.md](src/namecheap_cli/COMMANDS.md) or `namecheap-cli <resource> --help`.
 
-The CLI operates only on domains in your Namecheap account, plus two exceptions: `domain check` reports whether arbitrary domains are unregistered (not whether an owner is selling them; there is no WHOIS or marketplace API), and `domain register` buys one:
+The CLI operates only on domains in your Namecheap account, plus three exceptions: `domain check` reports whether arbitrary domains are unregistered, and for taken ones whether the holder advertises them for sale in DNS (RFC 10023; there is no WHOIS or marketplace API, so a seller who publishes no record stays invisible); `for-sale show` reads any domain's `_for-sale` records; and `domain register` buys one:
 
 ```bash
 ❯ namecheap-cli domain check myawesome.com coolstartup.live
@@ -203,31 +203,34 @@ namecheap-cli dns reset-nameservers example.com
 [RFC 10023](https://www.rfc-editor.org/rfc/rfc10023.html) reserves the `_for-sale` underscored node name ([IANA registry](https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#underscored-globally-scoped-dns-node-names)) so a live domain can signal it is for sale without a parking page or any visible change to the site. Brokers and availability services find it by lookup; browsers never see it. Summary at the [Website Specification](https://specification.website/spec/foundations/for-sale-dns/).
 
 ```bash
-namecheap-cli dns add example.com TXT _for-sale "v=FORSALE1;furi=mailto:sales@example.com"
+namecheap-cli for-sale set example.com --furi mailto:sales@example.com
 ```
 
-Rules that matter when writing the record:
+`for-sale set` writes the RRset the RFC asks for and refuses anything else, so the rules below are enforced, not just advice:
 
 - `v=FORSALE1;` is mandatory, case-sensitive, and must start the string.
-- **One tag-value pair per record.** To publish both a price and a contact, add two records to the same name; do not concatenate them into one string.
+- **One tag-value pair per record.** Each `--furi`/`--fval`/`--ftxt`/`--fcod` (all repeatable) becomes its own record at the same name.
 - Tags: `furi=` (contact URI, `https`/`mailto`/`tel`), `ftxt=` (human text), `fval=` (asking price as currency code plus amount, `fval=USD12500`), `fcod=` (private code between cooperating parties).
 - Max 255 octets, single character-string, no continuation.
-- TTL must be ≤ 3600. The CLI default of 1799 already complies; `--ttl` above 3600 violates the RFC.
-- **Delete the record once the domain is no longer for sale.** Absence is the only "not for sale" signal; there is no negative value.
+- TTL must be ≤ 3600 (`--ttl`, default 1799).
+- **Withdraw once the domain is no longer for sale** (`for-sale clear`). Absence is the only "not for sale" signal; there is no negative value.
+
+`set` replaces every `_for-sale` record of the domain and nothing else; it and `clear` print the records they replace to stderr first (`<domain> _for-sale before: ...`).
 
 ```bash
 # Price and contact together: two records, same name
-namecheap-cli dns add example.com TXT _for-sale "v=FORSALE1;fval=USD12500"
-namecheap-cli dns add example.com TXT _for-sale "v=FORSALE1;furi=https://example.com/for-sale"
+namecheap-cli for-sale set example.com --fval USD12500 --furi https://example.com/for-sale
 
-# Verify
-dig +short TXT _for-sale.example.com
+# Verify (DNS, so allow for the TTL): any domain, yours or not
+namecheap-cli for-sale show example.com
 
 # Withdraw
-namecheap-cli dns delete example.com --type TXT --name _for-sale
+namecheap-cli for-sale clear example.com
 ```
 
-Only works while the domain uses Namecheap BasicDNS. On Cloudflare or another provider, add the same TXT record there. Publishing `fval` puts your asking price in a machine-harvestable field and anchors every negotiation that follows, so `furi` alone is the usual choice.
+`domain list` shows the state of all your domains in a "For Sale" column, and `domain check` shows it for every taken domain it checks. Prices carry a `*` and a note that they are indicative only, as RFC 10023 §4 asks.
+
+Writing only works while the domain uses Namecheap BasicDNS. On Cloudflare or another provider, add the same TXT records there; `for-sale show` still reads them. Publishing `fval` puts your asking price in a machine-harvestable field and anchors every negotiation that follows, so `furi` alone is the usual choice.
 
 ### Email forwarding
 

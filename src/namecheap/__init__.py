@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from .client import Namecheap
 from .errors import ConfigurationError, NamecheapError, ValidationError
+from .forsale import for_sale, for_sale_many
 from .models import (
     AccountBalance,
     Contact,
@@ -21,6 +22,8 @@ from .models import (
     DomainContacts,
     DomainInfo,
     EmailForward,
+    ForSale,
+    ForSalePrice,
     Nameservers,
     ProductPrice,
     Tld,
@@ -38,6 +41,8 @@ __all__ = [
     "DomainContacts",
     "DomainInfo",
     "EmailForward",
+    "ForSale",
+    "ForSalePrice",
     "Namecheap",
     "NamecheapError",
     "Nameservers",
@@ -45,4 +50,6 @@ __all__ = [
     "Tld",
     "ValidationError",
     "WhoisguardEntry",
+    "for_sale",
+    "for_sale_many",
 ]

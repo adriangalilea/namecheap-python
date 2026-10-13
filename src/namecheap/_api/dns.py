@@ -4,15 +4,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-import tldextract
-
+from namecheap.forsale import LABEL as FOR_SALE_LABEL
+from namecheap.forsale import MAX_TTL
+from namecheap.forsale import records as for_sale_records
 from namecheap.idn import to_punycode
-from namecheap.models import DNSRecord, EmailForward, Nameservers
+from namecheap.models import DNSRecord, EmailForward, ForSalePrice, Nameservers
+from namecheap.tld import split_domain
 
 from .base import BaseAPI
 
+
+def _is_for_sale(record: DNSRecord) -> bool:
+    return record.type == "TXT" and record.name == FOR_SALE_LABEL
+
+
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
     from typing import Self
 
 
@@ -206,7 +213,7 @@ class DnsAPI(BaseAPI):
             ...     print(f"{record.type} {record.name} -> {record.value}")
         """
         # Parse domain to get SLD and TLD
-        ext = tldextract.extract(to_punycode(domain))
+        ext = split_domain(to_punycode(domain))
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 
@@ -254,7 +261,7 @@ class DnsAPI(BaseAPI):
             records = records.build()
 
         # Parse domain
-        ext = tldextract.extract(to_punycode(domain))
+        ext = split_domain(to_punycode(domain))
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 
@@ -368,6 +375,69 @@ class DnsAPI(BaseAPI):
 
         return original_count - len(filtered)
 
+    def set_for_sale(
+        self,
+        domain: str,
+        *,
+        furi: Sequence[str] = (),
+        ftxt: Sequence[str] = (),
+        fval: Sequence[str | ForSalePrice] = (),
+        fcod: Sequence[str] = (),
+        ttl: int = 1799,
+    ) -> list[DNSRecord]:
+        """
+        Advertise a domain as for sale (RFC 10023): replace its `_for-sale`
+        TXT records with one record per given value. Every other record stays.
+
+        Only for domains on Namecheap BasicDNS; elsewhere the records live at
+        that DNS provider. Read back with `namecheap.for_sale(domain)` (DNS,
+        so allow for the TTL before it shows).
+
+        Args:
+            domain: Domain name
+            furi: Contact URIs (https, mailto, tel)
+            ftxt: Short human text
+            fval: Asking prices, "USD12500" or ForSalePrice (public, and an anchor)
+            fcod: Codes for cooperating parties (registries, brokers)
+            ttl: At most 3600 (RFC 10023 §3.4)
+
+        Returns:
+            The `_for-sale` records that were replaced (empty if none)
+
+        Examples:
+            >>> nc.dns.set_for_sale("example.com", furi=["mailto:sales@example.com"])
+        """
+        if ttl > MAX_TTL:
+            raise ValueError(f"_for-sale TTL must be at most {MAX_TTL}, got {ttl}")
+        values = for_sale_records(furi=furi, ftxt=ftxt, fval=fval, fcod=fcod)
+        existing = self.get(domain)
+        previous = [r for r in existing if _is_for_sale(r)]
+        kept = [r for r in existing if not _is_for_sale(r)]
+        added = [
+            DNSRecord.model_validate(
+                {"name": FOR_SALE_LABEL, "type": "TXT", "value": v, "ttl": ttl}
+            )
+            for v in values
+        ]
+        assert self.set(domain, kept + added), f"setHosts refused {domain}"
+        return previous
+
+    def clear_for_sale(self, domain: str) -> list[DNSRecord]:
+        """
+        Withdraw a domain from sale: delete its `_for-sale` TXT records.
+        Absence is the only "not for sale" signal (RFC 10023 §2.3).
+
+        Returns:
+            The records that were deleted (empty if there were none, and then
+            nothing is written)
+        """
+        existing = self.get(domain)
+        previous = [r for r in existing if _is_for_sale(r)]
+        if previous:
+            kept = [r for r in existing if not _is_for_sale(r)]
+            assert self.set(domain, kept), f"setHosts refused {domain}"
+        return previous
+
     @staticmethod
     def builder() -> DNSRecordBuilder:
         """
@@ -408,7 +478,7 @@ class DnsAPI(BaseAPI):
         assert nameservers, "At least one nameserver is required"
         assert len(nameservers) <= 5, "Maximum of 5 nameservers allowed"
 
-        ext = tldextract.extract(to_punycode(domain))
+        ext = split_domain(to_punycode(domain))
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 
@@ -439,7 +509,7 @@ class DnsAPI(BaseAPI):
         Examples:
             >>> nc.dns.set_default_nameservers("example.com")
         """
-        ext = tldextract.extract(to_punycode(domain))
+        ext = split_domain(to_punycode(domain))
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 
@@ -471,7 +541,7 @@ class DnsAPI(BaseAPI):
             >>> ns.nameservers
             ['dns1.registrar-servers.com', 'dns2.registrar-servers.com']
         """
-        ext = tldextract.extract(to_punycode(domain))
+        ext = split_domain(to_punycode(domain))
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 

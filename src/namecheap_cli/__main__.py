@@ -12,15 +12,24 @@ from pathlib import Path
 from typing import Any
 
 import click
-import tldextract
 import yaml
+from dns.exception import DNSException
 from rich.console import Console
+from rich.markup import escape
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from namecheap import ConfigurationError, Namecheap, NamecheapError
+from namecheap import (
+    ConfigurationError,
+    ForSale,
+    Namecheap,
+    NamecheapError,
+    for_sale_many,
+)
+from namecheap.forsale import records as for_sale_records
 from namecheap.models import Contact, DNSRecord
+from namecheap.tld import split_domain
 
 from .completion import get_completion_script
 
@@ -193,6 +202,33 @@ def cli(
         console._color_system = None
 
 
+PRICE_DISCLAIMER = (
+    "* Asking prices come from the holder's own _for-sale record (RFC 10023):"
+    " indicative only, verify with the seller."
+)
+
+
+def for_sale_cell(sale: ForSale | None | DNSException) -> str:
+    """One table cell for a _for-sale lookup. Record text is the domain
+    holder's, so it is escaped: it can never become Rich markup."""
+    if isinstance(sale, DNSException):
+        return f"[red]lookup failed: {escape(type(sale).__name__)}[/red]"
+    if sale is None:
+        return ""
+    parts = [f"{escape(str(p))}*" for p in sale.fval]
+    parts += [escape(u) for u in sale.furi]
+    parts += [f'"{escape(t)}"' for t in sale.ftxt]
+    return "[magenta]for sale[/magenta]" + (f" {' · '.join(parts)}" if parts else "")
+
+
+def for_sale_json(sale: ForSale | None | DNSException) -> dict[str, Any] | None:
+    """The `for_sale` field of -o json/yaml: the parsed record, null when not
+    for sale, or {"error": ...} when the lookup itself failed (unknown)."""
+    if isinstance(sale, DNSException):
+        return {"error": f"{type(sale).__name__}: {sale}"}
+    return sale.model_dump(mode="json", exclude={"domain"}) if sale else None
+
+
 @cli.group("domain")
 def domain_group() -> None:
     """Domain management commands."""
@@ -220,6 +256,8 @@ def domain_list(
         ) as progress:
             progress.add_task("Loading domains...", total=None)
             domains = nc.domains.list()
+            # Public DNS, so this is what buyers see, wherever the zone is hosted
+            sales = for_sale_many([d.name for d in domains])
 
         # Filter by status
         if status:
@@ -252,6 +290,7 @@ def domain_list(
             table.add_column("Expires", style="yellow")
             table.add_column("Auto-Renew")
             table.add_column("Locked")
+            table.add_column("For Sale (RFC 10023)", overflow="fold")
 
             for d in domains:
                 status_text = "Active" if not d.is_expired else "Expired"
@@ -262,9 +301,13 @@ def domain_list(
                     d.expires.strftime("%Y-%m-%d"),
                     "✓" if d.auto_renew else "✗",
                     "🔒" if d.is_locked else "",
+                    for_sale_cell(sales[d.name]),
                 )
 
             console.print(table)
+            priced = any(isinstance(s, ForSale) and s.fval for s in sales.values())
+            if priced and not config.quiet:
+                console.print(f"[dim]{PRICE_DISCLAIMER}[/dim]")
         else:
             data = [
                 {
@@ -274,13 +317,22 @@ def domain_list(
                     "expires": d.expires.isoformat(),
                     "auto_renew": d.auto_renew,
                     "locked": d.is_locked,
+                    "for_sale": for_sale_json(sales[d.name]),
                 }
                 for d in domains
             ]
             output_formatter(
                 data,
                 config.output_format,
-                ["domain", "unicode", "status", "expires", "auto_renew", "locked"],
+                [
+                    "domain",
+                    "unicode",
+                    "status",
+                    "expires",
+                    "auto_renew",
+                    "locked",
+                    "for_sale",
+                ],
             )
 
     except NamecheapError as e:
@@ -313,6 +365,8 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
         ) as progress:
             progress.add_task(f"Checking {len(domain_list)} domains...", total=None)
             results = nc.domains.check(*domain_list, include_pricing=True)
+            # A taken name can still be bought if its holder says so in DNS
+            sales = for_sale_many([r.domain for r in results if not r.available])
 
         # Output
         if config.output_format == "table":
@@ -321,6 +375,8 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
             table.add_column("Available", style="green")
             table.add_column("1st Year", style="yellow")
             table.add_column("Regular (USD/yr)", style="dim")
+            if sales:
+                table.add_column("For Sale (RFC 10023)", overflow="fold")
 
             for result in results:
                 available_text = "✅ Available" if result.available else "❌ Taken"
@@ -338,14 +394,22 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
                 if shown != result.domain:
                     shown = f"{shown} [dim]({result.domain})[/dim]"
 
-                table.add_row(
+                row = [
                     shown,
                     f"[{available_style}]{available_text}[/{available_style}]",
                     price_text,
                     regular_text,
-                )
+                ]
+                if sales:
+                    row.append(
+                        "" if result.available else for_sale_cell(sales[result.domain])
+                    )
+                table.add_row(*row)
 
             console.print(table)
+            priced = any(isinstance(s, ForSale) and s.fval for s in sales.values())
+            if priced and not config.quiet:
+                console.print(f"[dim]{PRICE_DISCLAIMER}[/dim]")
 
             # Show suggestions for taken domains
             # Only ASCII names get suggestions: .com/.net/.io accept no emoji,
@@ -381,6 +445,8 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
                     item["regular_price"] = float(result.regular_price)
                 if result.available and result.icann_fee:
                     item["icann_fee"] = float(result.icann_fee)
+                if not result.available:
+                    item["for_sale"] = for_sale_json(sales[result.domain])
                 data.append(item)
 
             headers = [
@@ -390,6 +456,7 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
                 "price",
                 "regular_price",
                 "icann_fee",
+                "for_sale",
             ]
             output_formatter(data, config.output_format, headers)
 
@@ -491,7 +558,7 @@ def domain_register(
 
         # Money: exact multi-year total from the pricing API, renewal rate,
         # balance. Registration pricing at duration N is the cumulative total.
-        tld = tldextract.extract(domain).suffix
+        tld = split_domain(domain).suffix
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -1386,6 +1453,169 @@ def domain_tlds(config: Config, registerable: bool, tld_type: str | None) -> Non
     except NamecheapError as e:
         console.print(f"[red]❌ Error: {e}[/red]")
         sys.exit(1)
+
+
+@cli.group("for-sale")
+def for_sale_group() -> None:
+    """Advertise domains for sale, or read who does (RFC 10023 _for-sale)."""
+    pass
+
+
+@for_sale_group.command("show")
+@click.argument("domains", nargs=-1, required=True)
+@pass_config
+def for_sale_show(config: Config, domains: tuple[str, ...]) -> None:
+    """Read the _for-sale records of any domains, yours or not.
+
+    Plain DNS: needs no Namecheap credentials.
+
+    Example:
+        namecheap-cli for-sale show example.com example.net
+    """
+    sales = for_sale_many(list(domains))
+
+    if config.output_format != "table":
+        output_formatter(
+            [{"domain": d, "for_sale": for_sale_json(sales[d])} for d in domains],
+            config.output_format,
+            ["domain", "for_sale"],
+        )
+        return
+
+    table = Table(title="_for-sale (RFC 10023)")
+    table.add_column("Domain", style="cyan")
+    table.add_column("Tag")
+    table.add_column("Value", overflow="fold")
+    for d in domains:
+        sale = sales[d]
+        if not isinstance(sale, ForSale):
+            table.add_row(
+                escape(d), "", for_sale_cell(sale) or "[dim]not for sale[/dim]"
+            )
+            continue
+        rows = (
+            [("fval", f"{escape(str(p))}*") for p in sale.fval]
+            + [("furi", escape(u)) for u in sale.furi]
+            + [("ftxt", escape(t)) for t in sale.ftxt]
+            + [("fcod", escape(c)) for c in sale.fcod]
+            + [("[yellow]invalid[/yellow]", escape(r)) for r in sale.invalid]
+            + [("[dim]note[/dim]", f"[dim]{escape(n)}[/dim]") for n in sale.notes]
+        )
+        for i, (tag, value) in enumerate(rows or [("", "")]):
+            table.add_row(escape(d) if i == 0 else "", tag, value)
+    console.print(table)
+    priced = any(isinstance(s, ForSale) and s.fval for s in sales.values())
+    if priced and not config.quiet:
+        console.print(f"[dim]{PRICE_DISCLAIMER}[/dim]")
+    if any(isinstance(s, DNSException) for s in sales.values()):
+        sys.exit(1)
+
+
+def _for_sale_breadcrumb(domain: str, previous: list[DNSRecord]) -> None:
+    """The records a write replaced, always on stderr: what to restore from."""
+    click.echo(
+        f"{domain} _for-sale before: "
+        + (" | ".join(r.value for r in previous) or "(no records)"),
+        err=True,
+    )
+
+
+@for_sale_group.command("set")
+@click.argument("domain")
+@click.option("--furi", multiple=True, help="Contact URI (https:, mailto:, tel:)")
+@click.option("--fval", multiple=True, help="Asking price, e.g. USD12500 (public)")
+@click.option("--ftxt", multiple=True, help="Short human text")
+@click.option("--fcod", multiple=True, help="Code for cooperating parties")
+@click.option("--ttl", type=int, default=1799, help="At most 3600 (RFC 10023)")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@pass_config
+def for_sale_set(
+    config: Config,
+    domain: str,
+    furi: tuple[str, ...],
+    fval: tuple[str, ...],
+    ftxt: tuple[str, ...],
+    fcod: tuple[str, ...],
+    ttl: int,
+    yes: bool,
+) -> None:
+    """Advertise DOMAIN as for sale: replace its _for-sale records.
+
+    One record per value; every other DNS record stays. Needs Namecheap
+    BasicDNS. The rules being replaced are printed to stderr first.
+
+    Example:
+        namecheap-cli for-sale set example.com --furi mailto:sales@example.com
+    """
+    try:
+        values = for_sale_records(furi=furi, fval=fval, ftxt=ftxt, fcod=fcod)
+    except ValueError as e:
+        raise click.BadParameter(str(e)) from e
+
+    nc = config.init_client()
+    if not yes and not config.quiet:
+        console.print(f"\n[yellow]_for-sale.{escape(domain)} will hold:[/yellow]")
+        for v in values:
+            console.print(f"  [green]+ {escape(v)}[/green]")
+        if fval:
+            console.print(
+                "  [yellow]fval publishes your asking price to anyone, and anchors"
+                " every negotiation that follows[/yellow]"
+            )
+        if not furi:
+            console.print(
+                "  [yellow]no furi: buyers get no way to reach you from the"
+                " record itself[/yellow]"
+            )
+        console.print()
+        if not Confirm.ask("Continue?", default=True):
+            console.print("[yellow]Cancelled[/yellow]")
+            return
+
+    try:
+        previous = nc.dns.set_for_sale(
+            domain, furi=furi, fval=list(fval), ftxt=ftxt, fcod=fcod, ttl=ttl
+        )
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+    _for_sale_breadcrumb(domain, previous)
+    console.print(
+        f"[green]✅ {escape(domain)} is advertised for sale[/green]"
+        f" [dim](DNS shows it within {ttl}s: namecheap-cli for-sale show {escape(domain)})[/dim]"
+    )
+
+
+@for_sale_group.command("clear")
+@click.argument("domain")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@pass_config
+def for_sale_clear(config: Config, domain: str, yes: bool) -> None:
+    """Withdraw DOMAIN from sale: delete its _for-sale records.
+
+    Example:
+        namecheap-cli for-sale clear example.com
+    """
+    nc = config.init_client()
+    if (
+        not yes
+        and not config.quiet
+        and not Confirm.ask(f"Delete every _for-sale record of {domain}?", default=True)
+    ):
+        console.print("[yellow]Cancelled[/yellow]")
+        return
+    try:
+        previous = nc.dns.clear_for_sale(domain)
+    except NamecheapError as e:
+        console.print(f"[red]❌ Error: {e}[/red]")
+        sys.exit(1)
+    _for_sale_breadcrumb(domain, previous)
+    if previous:
+        console.print(
+            f"[green]✅ {escape(domain)} is no longer advertised for sale[/green]"
+        )
+    else:
+        console.print(f"[yellow]{escape(domain)} had no _for-sale records[/yellow]")
 
 
 @cli.group("privacy")

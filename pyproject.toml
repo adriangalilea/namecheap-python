@@ -26,6 +26,7 @@ dependencies = [
     "rich>=13.0.0",
     "xmltodict>=0.13.0",
     "tldextract>=5.0.0",
+    "dnspython>=2.6.0",
 ]
 
 [project.urls]
@@ -98,6 +99,3 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "**/*_check.py" = ["S603"]  # subprocess calls are intentional in boundary checks
-
-
-

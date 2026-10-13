@@ -309,6 +309,44 @@ class EmailForward(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class ForSalePrice(BaseModel):
+    """An `fval=` asking price. Indicative only (RFC 10023 §4): never binding."""
+
+    currency: str = Field(description="Uppercase code, ISO 4217 for fiat (USD, EUR)")
+    amount: Decimal
+
+    def __str__(self) -> str:
+        return f"{self.currency} {self.amount:,}"
+
+
+class ForSale(BaseModel):
+    """What a domain's `_for-sale` TXT records (RFC 10023) say.
+
+    Exists only when at least one record carries the `v=FORSALE1;` version tag:
+    that alone means the holder signals the name is for sale, even when no
+    content tag is present or the content is invalid (RFC 10023 §2.1).
+    Text is sanitised: control and bidirectional-override characters become
+    U+FFFD, so a record cannot rewrite the terminal or the line it is shown in.
+    """
+
+    domain: str = Field(description="The domain asked about, as queried (punycode)")
+    furi: list[str] = Field(default_factory=list, description="Contact URIs")
+    ftxt: list[str] = Field(default_factory=list, description="Human text")
+    fval: list[ForSalePrice] = Field(default_factory=list, description="Prices")
+    fcod: list[str] = Field(
+        default_factory=list, description="Codes for cooperating parties"
+    )
+    invalid: list[str] = Field(
+        default_factory=list,
+        description="Versioned records whose content is absent or malformed",
+    )
+    notes: list[str] = Field(
+        default_factory=list,
+        description="TXT strings in the same RRset without the version tag:"
+        " not an indicator, only context for a human (§2.1)",
+    )
+
+
 class Nameservers(BaseModel):
     """Current nameserver configuration for a domain."""
 

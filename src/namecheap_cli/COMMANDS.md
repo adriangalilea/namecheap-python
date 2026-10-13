@@ -34,6 +34,7 @@ Commands:
   config      Configuration management commands.
   dns         DNS record management commands.
   domain      Domain management commands.
+  for-sale    Advertise domains for sale, or read who does (RFC 10023...
   privacy     Domain privacy (WhoisGuard) management.
   skill       Claude Code skill management.
 ```
@@ -384,6 +385,74 @@ Options:
   --registerable           Only show API-registerable TLDs
   -t, --type [gtld|cctld]  Filter by TLD type
   --help                   Show this message and exit.
+```
+
+## `namecheap-cli for-sale`
+
+```
+Usage: namecheap-cli for-sale [OPTIONS] COMMAND [ARGS]...
+
+  Advertise domains for sale, or read who does (RFC 10023 _for-sale).
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  clear  Withdraw DOMAIN from sale: delete its _for-sale records.
+  set    Advertise DOMAIN as for sale: replace its _for-sale records.
+  show   Read the _for-sale records of any domains, yours or not.
+```
+
+## `namecheap-cli for-sale clear`
+
+```
+Usage: namecheap-cli for-sale clear [OPTIONS] DOMAIN
+
+  Withdraw DOMAIN from sale: delete its _for-sale records.
+
+  Example:     namecheap-cli for-sale clear example.com
+
+Options:
+  -y, --yes  Skip confirmation
+  --help     Show this message and exit.
+```
+
+## `namecheap-cli for-sale set`
+
+```
+Usage: namecheap-cli for-sale set [OPTIONS] DOMAIN
+
+  Advertise DOMAIN as for sale: replace its _for-sale records.
+
+  One record per value; every other DNS record stays. Needs Namecheap BasicDNS.
+  The rules being replaced are printed to stderr first.
+
+  Example:     namecheap-cli for-sale set example.com --furi
+  mailto:sales@example.com
+
+Options:
+  --furi TEXT    Contact URI (https:, mailto:, tel:)
+  --fval TEXT    Asking price, e.g. USD12500 (public)
+  --ftxt TEXT    Short human text
+  --fcod TEXT    Code for cooperating parties
+  --ttl INTEGER  At most 3600 (RFC 10023)
+  -y, --yes      Skip confirmation
+  --help         Show this message and exit.
+```
+
+## `namecheap-cli for-sale show`
+
+```
+Usage: namecheap-cli for-sale show [OPTIONS] DOMAINS...
+
+  Read the _for-sale records of any domains, yours or not.
+
+  Plain DNS: needs no Namecheap credentials.
+
+  Example:     namecheap-cli for-sale show example.com example.net
+
+Options:
+  --help  Show this message and exit.
 ```
 
 ## `namecheap-cli privacy`

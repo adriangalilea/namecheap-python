@@ -18,6 +18,9 @@ A modern, friendly Python SDK for the Namecheap API with comprehensive CLI and T
 > Also new: `nc.dns.clear_email_forwarding()` and `namecheap-cli dns clear-email-forwarding` remove every forwarding rule (`set_email_forwarding([])` raises). Both commands print the rules they replace to stderr first, so there is always something to restore from.
 
 > [!NOTE]
+> **New in v4.0.0:** [RFC 10023](https://www.rfc-editor.org/rfc/rfc10023.html) `_for-sale` support, read and write. `domain check` shows whether a taken domain's holder advertises it for sale, `domain list` shows which of yours you do, `namecheap-cli for-sale show|set|clear` reads any domain's records and writes yours, and the SDK has `namecheap.for_sale()`, `nc.dns.set_for_sale()` and `nc.dns.clear_for_sale()` ([#13](https://github.com/adriangalilea/namecheap-python/issues/13), requested by [@mdavids](https://github.com/mdavids), the RFC's author).
+
+> [!NOTE]
 > **New in v3.1.0:** IDN and emoji domains now print readably everywhere (`🧊.to`, not `xn--3u9h.to`), and `domains.list()` no longer crashes on accounts with zero domains ([#10](https://github.com/adriangalilea/namecheap-python/issues/10), reported by [@jparavisini](https://github.com/jparavisini), fixed by [@SAY-5](https://github.com/SAY-5)).
 >
 > **New in v3.0.0:** register domains from the CLI — `namecheap-cli domain register` shows the real cost up front (promo vs. regular price, renewal rate, ICANN fee) and charges your account balance only after you confirm.
@@ -66,7 +69,7 @@ for domain in my_domains:
 nc.dns.set("example.com",
     nc.dns.builder()
     .a("@", "192.0.2.1")
-    .a("www", "192.0.2.1")  
+    .a("www", "192.0.2.1")
     .mx("@", "mail.example.com", priority=10)
     .txt("@", "v=spf1 include:_spf.google.com ~all")
 )
@@ -305,7 +308,7 @@ from namecheap import Namecheap
 
 nc = Namecheap(
     api_key="your-api-key",
-    username="your-username", 
+    username="your-username",
     api_user="api-username",    # Optional
     client_ip="1.2.3.4",       # Optional, auto-detected
     sandbox=True               # Optional: the sandbox API; production by default
@@ -347,23 +350,23 @@ nc.dns.set("example.com",
     .a("@", "192.0.2.1")
     .a("www", "192.0.2.1")
     .a("blog", "192.0.2.2")
-    
-    # AAAA records  
+
+    # AAAA records
     .aaaa("@", "2001:db8::1")
     .aaaa("www", "2001:db8::1")
-    
+
     # MX records
     .mx("@", "mail.example.com", priority=10)
     .mx("@", "mail2.example.com", priority=20)
-    
+
     # TXT records
     .txt("@", "v=spf1 include:_spf.google.com ~all")
     .txt("_dmarc", "v=DMARC1; p=none;")
-    
+
     # CNAME records
     .cname("blog", "myblog.wordpress.com")
     .cname("shop", "myshop.shopify.com")
-    
+
     # URL redirects
     .url("old", "https://new-site.com", redirect_type="301")
 )
@@ -462,6 +465,28 @@ nc.dns.set_email_forwarding("example.com", [
 nc.dns.clear_email_forwarding("example.com")
 ```
 
+### For Sale (RFC 10023)
+
+[RFC 10023](https://www.rfc-editor.org/rfc/rfc10023.html) lets a domain's holder say in DNS that it is for sale: TXT records at `_for-sale.<domain>`, each `v=FORSALE1;` plus one tag (`furi=` contact URI, `fval=` asking price, `ftxt=` text, `fcod=` a code for cooperating parties).
+
+```python
+from namecheap import for_sale, for_sale_many
+
+# Read: plain DNS, works for any domain, needs no credentials
+sale = for_sale("example.com")   # None when not for sale
+if sale:
+    print(sale.furi, [str(p) for p in sale.fval], sale.ftxt)
+
+for_sale_many(["a.com", "b.net"])  # parallel; a failed lookup comes back as its exception
+
+# Write: your domains on Namecheap BasicDNS. Replaces only the _for-sale
+# records and returns the ones it replaced.
+nc.dns.set_for_sale("example.com", furi=["mailto:sales@example.com"])
+nc.dns.clear_for_sale("example.com")  # absence is the only "not for sale"
+```
+
+Reading follows the RFC's rules: the version tag alone means "for sale", even with empty or invalid content (kept in `sale.invalid`); strings without it count only as `sale.notes` next to a valid record; control and bidirectional-override characters come back as `�`. A lookup that fails (timeout, SERVFAIL) raises, since it says nothing either way. Writing validates first: one pair per record, 255 octets, a well-formed `furi`/`fval`, no duplicates, TTL at most 3600.
+
 ### Domain Contacts
 
 ```python
@@ -510,7 +535,7 @@ print(f"New: {result['new_email']}")
 ```python
 # Check multiple domains with pricing
 results = nc.domains.check(
-    "example.com", 
+    "example.com",
     "coolstartup.io",
     "myproject.dev",
     include_pricing=True
@@ -531,11 +556,11 @@ from namecheap import Contact
 
 contact = Contact(
     first_name="John",
-    last_name="Doe", 
+    last_name="Doe",
     address1="123 Main St",
     city="New York",
     state_province="NY",
-    postal_code="10001", 
+    postal_code="10001",
     country="US",
     phone="+1.2125551234",
     email="john@example.com"
@@ -573,7 +598,7 @@ The Namecheap API only operates on domains **in your account**. There is no API 
 - Checking if a domain is listed on [Namecheap Marketplace](https://www.namecheap.com/domains/marketplace/)
 - Aftermarket pricing or availability
 
-`domains.check()` tells you if a domain is **unregistered**, not if it's for sale by its owner.
+`domains.check()` tells you if a domain is **unregistered**, not if it's for sale by its owner. Holders who say so in DNS can be found with `namecheap.for_sale()` ([RFC 10023](#for-sale-rfc-10023)), which `namecheap-cli domain check` runs for every taken domain.
 
 ### No billing or invoice API
 
@@ -600,7 +625,7 @@ nc.dns.builder().a("www", "192.0.2.1", ttl=1800)  # Shows as "30 min"
 | API | Status | Methods |
 |-----|--------|---------|
 | `namecheap.domains.*` | ✅ Done | `check`, `list`, `getInfo`, `getContacts`, `getTldList`, `register`, `renew`, `setContacts`, `lock`/`unlock` |
-| `namecheap.domains.dns.*` | ✅ Done | `getHosts`, `setHosts` (builder pattern), `add`, `delete`, `export`, `getList`, `setCustom`, `setDefault`, `getEmailForwarding`, `setEmailForwarding` |
+| `namecheap.domains.dns.*` | ✅ Done | `getHosts`, `setHosts` (builder pattern), `add`, `delete`, `export`, `getList`, `setCustom`, `setDefault`, `getEmailForwarding`, `setEmailForwarding`; RFC 10023 `_for-sale` records on top of `getHosts`/`setHosts` |
 | `namecheap.whoisguard.*` | ✅ Done | `getList`, `enable`, `disable`, `renew`, `changeEmailAddress` |
 | `namecheap.users.*` | ⚠️ Partial | `getBalances`, `getPricing`. Remaining methods are account management (`changePassword`, `update`, `create`, `login`, `resetPassword`) — only useful if building a reseller platform |
 | `namecheap.users.address.*` | 🚧 Planned | Saved address book (`create`, `delete`, `getInfo`, `getList`, `setDefault`, `update`). Natural pairing: an `--address-id` alternative to `--contacts-from` on `namecheap-cli domain register`, and a `contact_id` shortcut on `domains.register()` |

@@ -91,6 +91,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dnspython"
+version = "2.9.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/4a/50822184bd67cc6493f0fb6a880749158fcd31ab3fa07409acfd91f9fc85/dnspython-2.9.0.tar.gz", hash = "sha256:b44dc6b18f07a8b1c56676a19fbfdb5209415b046a9cece286baafa87ff3f7f1", size = 423560, upload-time = "2026-10-09T00:07:24.352Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/02/cdcc9b7c051786a103c3b09e1003a82fa0c66bcb91ffbdabcfbf7b4163b9/dnspython-2.9.0-py3-none-any.whl", hash = "sha256:9a4aedb833c3c1b49214d04d44d3032ab7a9135f7c1d29a549b4ff78fd82fda9", size = 354822, upload-time = "2026-10-09T00:07:22.622Z" },
+]
+
+[[package]]
 name = "filelock"
 version = "3.18.0"
 source = { registry = "https://pypi.org/simple" }
@@ -203,6 +212,7 @@ name = "namecheap-python"
 version = "4.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "dnspython" },
     { name = "httpx" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -238,6 +248,7 @@ tui = [
 requires-dist = [
     { name = "click", marker = "extra == 'all'", specifier = ">=8.1.0" },
     { name = "click", marker = "extra == 'cli'", specifier = ">=8.1.0" },
+    { name = "dnspython", specifier = ">=2.6.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "platformdirs", marker = "extra == 'all'", specifier = ">=4.0.0" },
     { name = "platformdirs", marker = "extra == 'cli'", specifier = ">=4.0.0" },

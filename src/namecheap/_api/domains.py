@@ -6,8 +6,6 @@ import builtins
 from decimal import Decimal
 from typing import Any
 
-import tldextract
-
 from namecheap.idn import to_punycode
 from namecheap.logging import logger
 from namecheap.models import (
@@ -18,6 +16,7 @@ from namecheap.models import (
     DomainInfo,
     Tld,
 )
+from namecheap.tld import split_domain
 
 from .base import BaseAPI
 
@@ -355,7 +354,7 @@ class DomainsAPI(BaseAPI):
             ... )
         """
         # Extract TLD and SLD
-        ext = tldextract.extract(to_punycode(domain))
+        ext = split_domain(to_punycode(domain))
         if not ext.domain or not ext.suffix:
             raise ValueError(f"Invalid domain name: {domain}")
 
@@ -432,7 +431,7 @@ class DomainsAPI(BaseAPI):
         # Group domains by TLD
         tld_groups: dict[str, builtins.list[str]] = {}
         for domain in domains:
-            tld = tldextract.extract(to_punycode(domain)).suffix
+            tld = split_domain(to_punycode(domain)).suffix
             if tld not in tld_groups:
                 tld_groups[tld] = []
             tld_groups[tld].append(domain)

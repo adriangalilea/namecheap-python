@@ -14,7 +14,7 @@ permissions: {}
 
 jobs:
   build:
-    uses: adriangalilea/ci/.github/workflows/python.yml@7018e276a6c519cef370fb1eeb1b8b5ee34da500 # v1.2.2
+    uses: adriangalilea/ci/.github/workflows/python.yml@b2324769d05804a2ce77a197ec2d0d0cb4f6ed87 # v1.9.0
     permissions:
       contents: read
 
@@ -35,7 +35,7 @@ jobs:
 
   release:
     needs: [build, publish]
-    uses: adriangalilea/ci/.github/workflows/release.yml@7018e276a6c519cef370fb1eeb1b8b5ee34da500 # v1.2.2
+    uses: adriangalilea/ci/.github/workflows/release.yml@b2324769d05804a2ce77a197ec2d0d0cb4f6ed87 # v1.9.0
     with:
       tag: ${{ needs.build.outputs.tag }}
     permissions:

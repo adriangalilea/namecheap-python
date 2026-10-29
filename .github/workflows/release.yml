@@ -14,7 +14,7 @@ permissions: {}
 
 jobs:
   build:
-    uses: adriangalilea/ci/.github/workflows/python.yml@7018e276a6c519cef370fb1eeb1b8b5ee34da500 # v1.2.2
+    uses: adriangalilea/ci/.github/workflows/python.yml@5afd9365125449d69deb51e9e5ab2980260832fe # v1.10.1
     permissions:
       contents: read
 
@@ -29,13 +29,13 @@ jobs:
         with:
           name: dist
           path: dist
-      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           skip-existing: true
 
   release:
     needs: [build, publish]
-    uses: adriangalilea/ci/.github/workflows/release.yml@7018e276a6c519cef370fb1eeb1b8b5ee34da500 # v1.2.2
+    uses: adriangalilea/ci/.github/workflows/release.yml@5afd9365125449d69deb51e9e5ab2980260832fe # v1.10.1
     with:
       tag: ${{ needs.build.outputs.tag }}
     permissions:

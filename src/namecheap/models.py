@@ -66,11 +66,18 @@ class DomainCheck(XMLModel):
     - your_price: Your discounted price based on your account
     - retail_price: Suggested retail price
     - price (property): Computed best price (premium > your > regular)
+
+    `status` is the one answer: "available", "taken", or "tld_not_sold" when
+    Namecheap does not sell the TLD, so whether the name is registered at all
+    is unknown. Such a result is built by the SDK, never parsed from the API.
     """
 
     domain: str = Field(alias="@Domain", description="Domain name checked")
     available: bool = Field(
-        alias="@Available", description="Whether domain is available"
+        alias="@Available", description="Whether Namecheap can register it now"
+    )
+    tld_sold: bool = Field(
+        default=True, description="Whether Namecheap sells this domain's TLD"
     )
     premium: bool = Field(
         default=False,
@@ -138,6 +145,20 @@ class DomainCheck(XMLModel):
     def unicode_domain(self) -> str:
         """`domain` in Unicode form ('xn--3u9h.to' → '🧊.to'), identical for ASCII."""
         return from_punycode(self.domain)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def status(self) -> Literal["available", "taken", "tld_not_sold"]:
+        """What the check found: available, taken, or a TLD Namecheap does not sell."""
+        if not self.tld_sold:
+            assert not self.available, f"{self.domain}: available in an unsold TLD"
+            return "tld_not_sold"
+        return "available" if self.available else "taken"
+
+    @classmethod
+    def tld_not_sold(cls, domain: str) -> DomainCheck:
+        """The result for a domain whose TLD Namecheap does not sell."""
+        return cls(domain=domain, available=False, tld_sold=False)
 
     @property
     def price(self) -> Decimal | None:

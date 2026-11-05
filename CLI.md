@@ -78,17 +78,20 @@ Resources: `domain` (list, check, register, info, contacts, tlds), `dns` (list, 
 The CLI operates only on domains in your Namecheap account, plus three exceptions: `domain check` reports whether arbitrary domains are unregistered, and for taken ones whether the holder advertises them for sale in DNS (RFC 10023; there is no WHOIS or marketplace API, so a seller who publishes no record stays invisible); `for-sale show` reads any domain's `_for-sale` records; and `domain register` buys one:
 
 ```bash
-❯ namecheap-cli domain check myawesome.com coolstartup.live
-                     Domain Availability
-┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
-┃ Domain           ┃ Available    ┃ 1st Year ┃ Regular (USD/yr) ┃
-┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
-│ myawesome.com    │ ❌ Taken     │ -        │ -                │
-│ coolstartup.live │ ✅ Available │ $2.98    │ $34.48           │
-└──────────────────┴──────────────┴──────────┴──────────────────┘
+❯ namecheap-cli domain check myawesome.com coolstartup.live coolstartup.md
+                                          Domain Availability
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Domain           ┃ Status                       ┃ 1st Year ┃ Regular (USD/yr) ┃ For Sale (RFC 10023) ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ myawesome.com    │ ❌ Taken                     │ -        │ -                │                      │
+│ coolstartup.live │ ✅ Available                 │ $2.98    │ $34.48           │                      │
+│ coolstartup.md   │ 🚫 TLD not sold by Namecheap │ -        │ -                │                      │
+└──────────────────┴──────────────────────────────┴──────────┴──────────────────┴──────────────────────┘
 ```
 
 "1st Year" is the price actually charged at registration (promo pricing plus any ICANN fee); "Regular" is what the TLD normally costs per year — a big gap means the renewal will not look like the first invoice.
+
+"TLD not sold by Namecheap" means Namecheap cannot register that TLD, so the check cannot say whether the name is taken; every other domain in the batch is still checked. In `-o json` each domain carries `status`: `available`, `taken` or `tld_not_sold` (`available` is `false` for the last two, so filter on `status`). The TLDs Namecheap sells come from `namecheap.domains.getTldList` (what `domain tlds` lists), cached for a day in `$XDG_CACHE_HOME/namecheap/` (`~/.cache/namecheap/`), so a check costs one extra API call a day at most; `domain tlds` refreshes the cache.
 
 ## Safety rules
 

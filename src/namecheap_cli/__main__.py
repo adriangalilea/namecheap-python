@@ -340,6 +340,13 @@ def domain_list(
         sys.exit(1)
 
 
+CHECK_STATUS_CELL = {
+    "available": ("✅ Available", "green"),
+    "taken": ("❌ Taken", "red"),
+    "tld_not_sold": ("🚫 TLD not sold by Namecheap", "yellow"),
+}
+
+
 @domain_group.command("check")
 @click.argument("domains", nargs=-1, required=False)
 @click.option("--file", "-f", type=click.File("r"), help="File with domains to check")
@@ -366,21 +373,20 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
             progress.add_task(f"Checking {len(domain_list)} domains...", total=None)
             results = nc.domains.check(*domain_list, include_pricing=True)
             # A taken name can still be bought if its holder says so in DNS
-            sales = for_sale_many([r.domain for r in results if not r.available])
+            sales = for_sale_many([r.domain for r in results if r.status == "taken"])
 
         # Output
         if config.output_format == "table":
             table = Table(title="Domain Availability")
-            table.add_column("Domain", style="cyan")
-            table.add_column("Available", style="green")
+            table.add_column("Domain", style="cyan", no_wrap=True)
+            table.add_column("Status", style="green", no_wrap=True)
             table.add_column("1st Year", style="yellow")
             table.add_column("Regular (USD/yr)", style="dim")
             if sales:
                 table.add_column("For Sale (RFC 10023)", overflow="fold")
 
             for result in results:
-                available_text = "✅ Available" if result.available else "❌ Taken"
-                available_style = "green" if result.available else "red"
+                available_text, available_style = CHECK_STATUS_CELL[result.status]
 
                 # total_price folds in ICANN/EAP fees when Namecheap reports them
                 price = result.total_price if result.available else None
@@ -402,7 +408,9 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
                 ]
                 if sales:
                     row.append(
-                        "" if result.available else for_sale_cell(sales[result.domain])
+                        for_sale_cell(sales[result.domain])
+                        if result.status == "taken"
+                        else ""
                     )
                 table.add_row(*row)
 
@@ -415,7 +423,7 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
             # Only ASCII names get suggestions: .com/.net/.io accept no emoji,
             # so "get🧊.com" is not a domain anyone can register
             taken = [
-                r for r in results if not r.available and r.unicode_domain.isascii()
+                r for r in results if r.status == "taken" and r.unicode_domain.isascii()
             ]
             if taken and not config.quiet:
                 console.print("\n💡 [yellow]Suggestions for taken domains:[/yellow]")
@@ -437,6 +445,7 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
                 item = {
                     "domain": result.domain,
                     "unicode": result.unicode_domain,
+                    "status": result.status,
                     "available": result.available,
                 }
                 if result.available and result.price:
@@ -445,13 +454,14 @@ def domain_check(config: Config, domains: tuple[str, ...], file) -> None:
                     item["regular_price"] = float(result.regular_price)
                 if result.available and result.icann_fee:
                     item["icann_fee"] = float(result.icann_fee)
-                if not result.available:
+                if result.status == "taken":
                     item["for_sale"] = for_sale_json(sales[result.domain])
                 data.append(item)
 
             headers = [
                 "domain",
                 "unicode",
+                "status",
                 "available",
                 "price",
                 "regular_price",

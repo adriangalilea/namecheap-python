@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import builtins
+import re
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from namecheap.errors import ErrorCode, NamecheapError
 from namecheap.idn import to_punycode
 from namecheap.logging import logger
 from namecheap.models import (
@@ -16,19 +18,46 @@ from namecheap.models import (
     DomainInfo,
     Tld,
 )
-from namecheap.tld import split_domain
+from namecheap.tld import (
+    read_sold_tlds,
+    sold_tlds_path,
+    split_domain,
+    tld_of,
+    write_sold_tlds,
+)
 
 from .base import BaseAPI
+
+if TYPE_CHECKING:
+    from namecheap.client import Namecheap
+
+
+# domains.check refuses more names per call (error 2011169)
+CHECK_BATCH = 50
+
+# How domains.check names the domain behind error 2030280
+_TLD_REJECTED = re.compile(r"Tld for '([^']+)' is not found")
 
 
 class DomainsAPI(BaseAPI):
     """Domain management operations."""
+
+    def __init__(self, client: Namecheap) -> None:
+        """Initialize with client reference."""
+        super().__init__(client)
+        # TLD names getTldList returned to this client, None until it is called
+        self._fetched_tlds: frozenset[str] | None = None
 
     def check(
         self, *domains: str, include_pricing: bool = False
     ) -> builtins.list[DomainCheck]:
         """
         Check domain availability.
+
+        Every domain gets one result, in input order (duplicates once). A
+        domain whose TLD Namecheap does not sell is a result with status
+        "tld_not_sold", never an error that loses the rest: the TLD list
+        (getTldList, cached a day) sorts those out before any check call.
 
         Args:
             *domains: Domain names to check
@@ -41,27 +70,16 @@ class DomainsAPI(BaseAPI):
             >>> nc.domains.check("example.com")
             [DomainCheck(domain='example.com', available=False, premium=False)]
 
-            >>> nc.domains.check("cool.ai", "awesome.io", include_pricing=True)
-            [DomainCheck(...), DomainCheck(...)]
+            >>> [r.status for r in nc.domains.check("example.com", "cells.md")]
+            ['taken', 'tld_not_sold']
         """
         if not domains:
             return []
 
-        # API accepts comma-separated list
-        domain_list = ",".join(to_punycode(d) for d in domains)
-
-        results = self._request(
-            "namecheap.domains.check",
-            {"DomainList": domain_list},
-            model=DomainCheck,
-            path="DomainCheckResult",
-        )
-
-        # Ensure we always return a list
-        if isinstance(results, DomainCheck):
-            results = [results]
-        elif not isinstance(results, list):
-            results = []
+        names = builtins.list(dict.fromkeys(to_punycode(d).lower() for d in domains))
+        found = self._availability(names)
+        assert found.keys() == set(names), f"unanswered: {set(names) - found.keys()}"
+        results = [found[n] for n in names]
 
         # Fetch pricing if requested and not already included
         if include_pricing and results:
@@ -88,6 +106,84 @@ class DomainsAPI(BaseAPI):
                     )
 
         return results
+
+    def _availability(self, names: builtins.list[str]) -> dict[str, DomainCheck]:
+        """One DomainCheck per name: unsold TLDs from the TLD list, the rest
+        from domains.check in batches.
+
+        A 2030280 means the list said Namecheap sells a TLD that domains.check
+        refuses. A list read from disk may simply be stale, so it is refetched
+        once and every pending name sorted again; a refusal the fresh list
+        still contradicts is logged as a warning naming the domain, and that
+        domain alone is reported as not sold.
+        """
+        sold = self.sold_tlds()
+        found = {n: DomainCheck.tld_not_sold(n) for n in names if tld_of(n) not in sold}
+        pending = [n for n in names if n not in found]
+
+        while pending:
+            batch = pending[:CHECK_BATCH]
+            try:
+                rows = self._request(
+                    "namecheap.domains.check",
+                    {"DomainList": ",".join(batch)},
+                    model=DomainCheck,
+                    path="DomainCheckResult",
+                    handled=frozenset({ErrorCode.TLD_NOT_SUPPORTED.value}),
+                )
+            except NamecheapError as e:
+                if e.code != ErrorCode.TLD_NOT_SUPPORTED:
+                    raise
+                match = _TLD_REJECTED.search(e.message)
+                assert match, f"2030280 that names no domain: {e.message!r}"
+                rejected = match.group(1).lower()
+                assert rejected in batch, f"2030280 names {rejected}, not in {batch}"
+
+                if self._fetched_tlds is None:
+                    sold = self._fetch_sold_tlds()
+                    logger.debug(f"Cached TLD list missed .{tld_of(rejected)}")
+                if tld_of(rejected) in sold:
+                    logger.warning(
+                        f"Namecheap lists .{tld_of(rejected)} in getTldList, but"
+                        f" domains.check refuses {rejected}: {e.message}."
+                        " Reported as TLD not sold."
+                    )
+                    sold = sold - {tld_of(rejected)}
+                found |= {
+                    n: DomainCheck.tld_not_sold(n)
+                    for n in pending
+                    if tld_of(n) not in sold
+                }
+                pending = [n for n in pending if n not in found]
+                continue
+
+            assert isinstance(rows, builtins.list)
+            answered = {r.domain.lower(): r for r in rows}
+            assert answered.keys() == set(batch), (
+                f"domains.check answered {sorted(answered)} for {batch}"
+            )
+            found |= answered
+            pending = pending[CHECK_BATCH:]
+
+        return found
+
+    def sold_tlds(self) -> frozenset[str]:
+        """Names of the TLDs Namecheap sells ('com', 'co.uk'), from getTldList.
+
+        Served from this client's last fetch, else the on-disk cache when it is
+        younger than a day, else fetched (and cached).
+        """
+        if self._fetched_tlds is not None:
+            return self._fetched_tlds
+        cached = read_sold_tlds(sold_tlds_path(sandbox=self.config.sandbox))
+        if cached is not None:
+            return cached
+        return self._fetch_sold_tlds()
+
+    def _fetch_sold_tlds(self) -> frozenset[str]:
+        self.get_tld_list()
+        assert self._fetched_tlds is not None
+        return self._fetched_tlds
 
     def list(self, *, page: int = 1, page_size: int = 20) -> builtins.list[Domain]:
         """
@@ -213,7 +309,7 @@ class DomainsAPI(BaseAPI):
         """
         Get list of all TLDs supported by Namecheap.
 
-        NOTE: Cache this response — it rarely changes and the API docs recommend it.
+        Every call refreshes the cached TLD names that check() sorts by.
 
         Returns:
             List of Tld objects with registration/renewal constraints and capabilities
@@ -235,7 +331,10 @@ class DomainsAPI(BaseAPI):
             tlds = [tlds]
         assert isinstance(tlds, list), f"Unexpected Tld type: {type(tlds)}"
 
-        return [Tld.model_validate(t) for t in tlds]
+        parsed = [Tld.model_validate(t) for t in tlds]
+        self._fetched_tlds = frozenset(t.name.lower() for t in parsed)
+        write_sold_tlds(sold_tlds_path(sandbox=self.config.sandbox), self._fetched_tlds)
+        return parsed
 
     def register(
         self,

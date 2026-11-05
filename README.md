@@ -116,14 +116,15 @@ Check domain availability and pricing:
 
 ```bash
 # Check domain availability — promo and regular price, so renewals never surprise you
-❯ namecheap-cli domain check myawesome.com coolstartup.live
-                     Domain Availability
-┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
-┃ Domain           ┃ Available    ┃ 1st Year ┃ Regular (USD/yr) ┃
-┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
-│ myawesome.com    │ ❌ Taken     │ -        │ -                │
-│ coolstartup.live │ ✅ Available │ $2.98    │ $34.48           │
-└──────────────────┴──────────────┴──────────┴──────────────────┘
+❯ namecheap-cli domain check myawesome.com coolstartup.live coolstartup.md
+                                          Domain Availability
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Domain           ┃ Status                       ┃ 1st Year ┃ Regular (USD/yr) ┃ For Sale (RFC 10023) ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ myawesome.com    │ ❌ Taken                     │ -        │ -                │                      │
+│ coolstartup.live │ ✅ Available                 │ $2.98    │ $34.48           │                      │
+│ coolstartup.md   │ 🚫 TLD not sold by Namecheap │ -        │ -                │                      │
+└──────────────────┴──────────────────────────────┴──────────┴──────────────────┴──────────────────────┘
 
 💡 Suggestions for taken domains:
   • myawesome.com → myawesome.net, myawesome.io, getmyawesome.com
@@ -501,6 +502,9 @@ print(contacts.registrant.email)
 tlds = nc.domains.get_tld_list()
 print(f"{len(tlds)} TLDs supported")
 
+# Just the names, cached a day on disk (what domains.check sorts by)
+"md" in nc.domains.sold_tlds()  # False
+
 # Filter to API-registerable TLDs
 registerable = [t for t in tlds if t.is_api_registerable]
 for t in registerable[:5]:
@@ -538,14 +542,20 @@ results = nc.domains.check(
     "example.com",
     "coolstartup.io",
     "myproject.dev",
+    "myproject.md",
     include_pricing=True
 )
 
+# One result per domain, in input order. status is "available", "taken", or
+# "tld_not_sold" (Namecheap does not sell .md): a TLD it does not sell never
+# fails the batch, the TLD list (getTldList, cached a day) sorts it out first
 for domain in results:
-    if domain.available:
+    if domain.status == "available":
         print(f"✅ {domain.domain} - ${domain.price}/year")
-    else:
+    elif domain.status == "taken":
         print(f"❌ {domain.domain} is taken")
+    else:
+        print(f"🚫 {domain.domain}: Namecheap does not sell this TLD")
 
 # List domains with filters
 domains = nc.domains.list()
@@ -603,6 +613,10 @@ The Namecheap API only operates on domains **in your account**. There is no API 
 ### No billing or invoice API
 
 Verified against production (2026-08): every plausible command (`users.getOrders`, `users.getInvoices`, `users.getTransactions`, `users.getBillingHistory`, `orders.getList`, `billing.getInvoices`) returns error 4 "Parameter Command is Invalid". The only money-adjacent endpoints are `users.getBalances`, `users.getPricing`, and the add-funds pair (`createaddfundsrequest`/`getAddFundsStatus`, which push money in, not read billing out). Invoice PDFs live in the dashboard (Profile → Billing & Payments → Invoices, matched by the Order ID that `domains.create` returns), and Namecheap emails a receipt per order, so a mailbox watcher is the automatable path.
+
+### One unsold TLD fails the whole check
+
+`namecheap.domains.check` answers a batch holding a TLD Namecheap does not sell with a single error, `2030280 Tld for 'cells.md' is not found`, and no result for the other names; more than 50 names is error 2011169. `nc.domains.check()` never sends either: it drops the unsold TLDs first using `getTldList` (cached a day in `$XDG_CACHE_HOME/namecheap/`, `nc.domains.sold_tlds()`), returns them as `status="tld_not_sold"`, and checks the rest in batches of 50. A 2030280 that still arrives means the TLD list and the check disagree: a cached list is refetched once, and a disagreement the fresh list keeps is logged as a warning naming the domain, which alone is reported as not sold.
 
 ### ICANN fee charged even when reported as zero
 

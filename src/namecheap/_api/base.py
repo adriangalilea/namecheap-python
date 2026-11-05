@@ -108,6 +108,7 @@ class BaseAPI:
         *,
         model: type[T] | None = None,
         path: str | None = None,
+        handled: frozenset[str] = frozenset(),
     ) -> T | list[T] | dict[str, Any]:
         """
         Make API request and parse response.
@@ -117,6 +118,7 @@ class BaseAPI:
             params: Additional parameters for the request
             model: Pydantic model to parse response with
             path: Dot-separated path to navigate in response
+            handled: Error codes the caller turns into a result: raised, never logged
 
         Returns:
             Parsed response as model instance(s) or raw dict
@@ -157,7 +159,8 @@ class BaseAPI:
             error = NamecheapError.from_response(
                 api_response, sandbox=self.config.sandbox
             )
-            self._handle_error(error)
+            if error.code not in handled:
+                self._handle_error(error)
             raise error
 
         # Extract command response

@@ -185,7 +185,7 @@ class BaseAPI:
         logger.error(f"API Error {error}")
 
         # For IP errors, show helpful information
-        if error.code in (ErrorCode.INVALID_REQUEST_IP, ErrorCode.IP_NOT_WHITELISTED):
+        if error.code == ErrorCode.IP_NOT_WHITELISTED:
             ErrorDisplay.show(error, show_traceback=False)
             logger.debug("Full error details:", exc_info=True)
         elif error.help:

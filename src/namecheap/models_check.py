@@ -67,6 +67,17 @@ def check_errors_name_the_api() -> None:
     assert production.help and "production API" in production.help, production.help
 
 
+def check_hints_match_the_documented_codes() -> None:
+    def hint(code: str) -> str | None:
+        return NamecheapError(code, "message", sandbox=False).help
+
+    assert "TLD" in (hint("2030280") or ""), hint("2030280")
+    assert "nameserver" in (hint("2011168") or ""), hint("2011168")
+    # 2011170 is a bad PromotionCode, 2011151 a bad first name (users.create)
+    assert hint("2011170") is None, hint("2011170")
+    assert hint("2011151") is None, hint("2011151")
+
+
 def check_invalid_ip_rejected() -> None:
     try:
         Config(api_key="k", username="u", api_user="u", client_ip="not-an-ip")
@@ -88,6 +99,7 @@ if __name__ == "__main__":
     check_valid_config_constructs()
     check_sandbox_is_explicit()
     check_errors_name_the_api()
+    check_hints_match_the_documented_codes()
     check_invalid_ip_rejected()
     check_invalid_log_level_rejected()
     print("ok: namecheap.models")

@@ -10,6 +10,9 @@ A modern, friendly Python SDK for the Namecheap API with comprehensive CLI and T
 
 ## 🚀 Features
 
+> [!NOTE]
+> **New in v4.1.0:** a TLD Namecheap does not sell no longer fails a whole `domain check`. `nc.domains.check()` returns it as `status="tld_not_sold"` and checks every other name, in batches of 50; the CLI shows "TLD not sold by Namecheap" and `-o json` carries `status`. Error hints now match Namecheap's documented codes (2030280 is an unsold TLD, 2011168 invalid nameservers, not an IP problem). See [One unsold TLD fails the whole check](#one-unsold-tld-fails-the-whole-check).
+
 > [!WARNING]
 > **v4.0.0 talks to production by default.** Until v3.x, the SDK used the sandbox API unless `NAMECHEAP_SANDBOX=false` or `sandbox=False` said otherwise, so a real account's key failed there with "API Key is invalid". Now `Namecheap()` calls `api.namecheap.com`, your real account, unless you ask for the sandbox with `NAMECHEAP_SANDBOX=true`, `sandbox=True` or `namecheap-cli --sandbox`. `NAMECHEAP_SANDBOX` must be a clear yes or no (`true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`); anything else is an error instead of a guess. Every API error now says which API answered.
 >
